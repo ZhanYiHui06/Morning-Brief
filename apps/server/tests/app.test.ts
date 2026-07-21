@@ -279,6 +279,93 @@ describe("admin API", () => {
     expect(await deleting.json()).toMatchObject({ error: "model_in_use", taskKinds: ["daily-overview"] });
   });
 
+  it("allows routing away from an unchanged legacy unsafe provider", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "morning-brief-legacy-provider-"));
+    const legacySetup = createDatabase(path.join(directory, "legacy.sqlite"));
+    onTestFinished(async () => {
+      await legacySetup.client.close();
+      try {
+        await rm(directory, { recursive: true, force: true, maxRetries: 2, retryDelay: 25 });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EBUSY") throw error;
+      }
+    });
+    await migrate(legacySetup.client);
+    await legacySetup.db.insert(providers).values([{
+      id: "provider-local",
+      name: "Legacy local",
+      protocol: "openai-compatible",
+      baseUrl: "http://127.0.0.1:9000/v1",
+      secretEnvRef: "LOCAL_KEY",
+    }, {
+      id: "provider-public",
+      name: "Public",
+      protocol: "openai-compatible",
+      baseUrl: "https://example.com/v1",
+      secretEnvRef: "PUBLIC_KEY",
+    }]).run();
+    await legacySetup.db.insert(models).values([{
+      id: "model-local",
+      providerId: "provider-local",
+      modelId: "local",
+      displayName: "Local",
+    }, {
+      id: "model-public",
+      providerId: "provider-public",
+      modelId: "public",
+      displayName: "Public",
+    }]).run();
+    await legacySetup.db.insert(taskRoutes).values({
+      id: "route-migrate",
+      taskKind: "daily-overview",
+      primaryModelId: "model-local",
+    }).run();
+    const app = createApp({ db: legacySetup.db, resolveHostname: resolvePublicHostname });
+    const config = {
+      paused: false,
+      providers: [{
+        id: "provider-local", name: "Legacy local", protocol: "openai-compatible" as const,
+        baseUrl: "http://127.0.0.1:9000/v1", enabled: true,
+      }, {
+        id: "provider-public", name: "Public", protocol: "openai-compatible" as const,
+        baseUrl: "https://example.com/v1", enabled: true,
+      }],
+      models: [{
+        id: "model-local", providerId: "provider-local", modelId: "local",
+        displayName: "Local", enabled: true, structuredOutput: false,
+      }, {
+        id: "model-public", providerId: "provider-public", modelId: "public",
+        displayName: "Public", enabled: true, structuredOutput: false,
+      }],
+      routes: [{ task: "daily-overview" as const, primaryModelId: "model-public" }],
+    };
+
+    const changedToUnsafe = await app.request("/api/model-config", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ...config,
+        providers: config.providers.map((provider) => provider.id === "provider-public"
+          ? { ...provider, baseUrl: "http://127.0.0.1:9001/v1" }
+          : provider),
+      }),
+    });
+    expect(changedToUnsafe.status).toBe(400);
+    expect(await changedToUnsafe.json()).toMatchObject({
+      error: "unsafe_provider_url", providerId: "provider-public", reason: "https_required",
+    });
+
+    const migrated = await app.request("/api/model-config", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(config),
+    });
+    expect(migrated.status).toBe(200);
+    expect(await legacySetup.db.select().from(taskRoutes).where(eq(taskRoutes.taskKind, "daily-overview")).get())
+      .toMatchObject({ primaryModelId: "model-public" });
+    expect((await app.request("/api/providers/provider-local", { method: "DELETE" })).status).toBe(204);
+  });
+
   it("records and injects task triggers", async () => {
     const enqueue = vi.fn().mockResolvedValue(undefined);
     const runner: TaskRunner = { enqueue };

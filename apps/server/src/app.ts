@@ -711,7 +711,15 @@ export function createApp({
     if (new Set(config.providers.map(({ name }) => name)).size !== config.providers.length)
       return c.json({ error: "duplicate_provider_name" }, 409);
 
+    const existingProviders = await db.select().from(providers).all();
+    const existingProviderById = new Map(existingProviders.map((provider) => [provider.id, provider]));
     for (const provider of config.providers) {
+      const existing = existingProviderById.get(provider.id);
+      if (!existing)
+        return c.json({ error: "provider_not_found", details: { providerId: provider.id } }, 409);
+      const requiresValidation = provider.baseUrl !== existing.baseUrl
+        || (!existing.enabled && provider.enabled);
+      if (!requiresValidation) continue;
       const validated = await validateProviderBaseUrl(provider.baseUrl, {
         ...(resolveHostname ? { resolveHostname } : {}),
         allowHttp: allowInsecureProviderHttp,
