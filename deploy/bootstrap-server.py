@@ -76,7 +76,6 @@ values = {
     "MORNING_BRIEF_MASTER_KEY": existing.get("MORNING_BRIEF_MASTER_KEY") or base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
     "ADMIN_BASIC_AUTH_USER": admin_user,
     "ADMIN_BASIC_AUTH_PASSWORD": admin_password,
-    "ADMIN_BASIC_AUTH_PASSWORD_HASH": admin_password_hash,
     "PUBLIC_URL": existing.get("PUBLIC_URL") or os.environ.get("PUBLIC_URL", ""),
     "OPENCLAW_HOOK_URL": existing.get("OPENCLAW_HOOK_URL", ""),
     "OPENCLAW_HOOK_TOKEN": existing.get("OPENCLAW_HOOK_TOKEN", ""),
