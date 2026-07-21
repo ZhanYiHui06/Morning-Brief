@@ -2,7 +2,6 @@ import {
   contentStatusSchema,
   dailyBriefSchema,
   modelInputSchema,
-  providerInputSchema,
   taskRouteInputSchema,
 } from "@morning-brief/core";
 import {
@@ -11,7 +10,12 @@ import {
   deliveryRecords,
   models,
   pipelineRuns,
+  providerConnectionChecks,
+  providerSecrets,
   providers,
+  encryptSecret,
+  decryptSecret,
+  readMasterKey,
   taskRoutes,
   type Database,
 } from "@morning-brief/database";
@@ -21,16 +25,52 @@ import { cors } from "hono/cors";
 import { z } from "zod";
 import {
   runnableTaskNames,
-  StubTaskRunner,
   type RunnableTaskName,
   type TaskRunner,
 } from "./runner.js";
+import {
+  hasValidBasicCredentials,
+  validateProviderBaseUrl,
+  type AdminCredentials,
+  type HostnameResolver,
+} from "./security.js";
 
 type AppDependencies = {
   db: Database;
   runner?: TaskRunner;
   now?: () => Date;
+  fetchImpl?: typeof fetch;
+  adminCredentials?: AdminCredentials | null;
+  allowedOrigins?: string[];
+  resolveHostname?: HostnameResolver;
+  allowInsecureProviderHttp?: boolean;
 };
+
+const providerCreateSchema = z.object({
+  name: z.string().trim().min(1),
+  protocol: z.literal("openai-compatible").default("openai-compatible"),
+  baseUrl: z.string().url(),
+  apiKey: z.string().trim().min(1).optional(),
+  secretEnvRef: z.string().regex(/^[A-Z][A-Z0-9_]*$/).optional(),
+  enabled: z.boolean().default(true),
+}).strict().refine((value) => value.apiKey || value.secretEnvRef, {
+  message: "apiKey or secretEnvRef is required",
+});
+
+const providerUpdateSchema = z.object({
+  name: z.string().trim().min(1),
+  protocol: z.literal("openai-compatible").default("openai-compatible"),
+  baseUrl: z.string().url(),
+  apiKey: z.string().trim().min(1).optional(),
+  enabled: z.boolean().default(true),
+}).strict();
+
+const importModelsSchema = z.object({
+  models: z.array(z.object({
+    modelId: z.string().trim().min(1),
+    displayName: z.string().trim().min(1).optional(),
+  })).min(1).max(200),
+}).strict();
 
 const contentQuerySchema = z.object({
   status: contentStatusSchema.optional(),
@@ -55,6 +95,35 @@ const contentPatchSchema = z
 
 const triggerBodySchema = z.object({ payload: z.unknown().optional() }).strict();
 const runnableTaskSchema = z.enum(runnableTaskNames);
+const modelConfigSaveSchema = z.object({
+  providers: z.array(z.object({
+    id: z.string().min(1),
+    name: z.string().trim().min(1),
+    protocol: z.literal("openai-compatible"),
+    baseUrl: z.string().url(),
+    enabled: z.boolean(),
+  })).max(100),
+  models: z.array(z.object({
+    id: z.string().min(1),
+    providerId: z.string().min(1),
+    modelId: z.string().trim().min(1),
+    displayName: z.string().trim().min(1),
+    enabled: z.boolean(),
+    structuredOutput: z.boolean(),
+  })).max(1_000),
+  routes: z.array(z.object({
+    task: taskRouteInputSchema.shape.taskKind,
+    primaryModelId: z.string().min(1),
+    fallbackModelId: z.string().min(1).optional(),
+  })).max(100),
+  paused: z.boolean().optional(),
+});
+
+class ModelConfigError extends Error {
+  constructor(readonly code: string, readonly details?: unknown) {
+    super(code);
+  }
+}
 
 function jsonValue(value: unknown) {
   return value === undefined ? null : JSON.stringify(value);
@@ -91,18 +160,43 @@ async function bodyJson(c: { req: { json: () => Promise<unknown> } }) {
   }
 }
 
-export function createApp({ db, runner = new StubTaskRunner(), now = () => new Date() }: AppDependencies) {
+export function createApp({
+  db,
+  runner,
+  now = () => new Date(),
+  fetchImpl = fetch,
+  adminCredentials = process.env.ADMIN_BASIC_AUTH_USER && process.env.ADMIN_BASIC_AUTH_PASSWORD
+    ? { username: process.env.ADMIN_BASIC_AUTH_USER, password: process.env.ADMIN_BASIC_AUTH_PASSWORD }
+    : null,
+  allowedOrigins = [
+    "http://127.0.0.1:5173", "http://localhost:5173",
+    "http://127.0.0.1:5174", "http://localhost:5174",
+    "http://127.0.0.1:5175", "http://localhost:5175",
+    ...(process.env.PUBLIC_URL ? [process.env.PUBLIC_URL] : []),
+  ],
+  resolveHostname,
+  allowInsecureProviderHttp = process.env.ALLOW_INSECURE_PROVIDER_HTTP === "true",
+}: AppDependencies) {
   const app = new Hono();
 
   app.use("/api/*", cors({
-    origin: [
-      "http://127.0.0.1:5173", "http://localhost:5173",
-      "http://127.0.0.1:5174", "http://localhost:5174",
-      "http://127.0.0.1:5175", "http://localhost:5175",
-    ],
+    origin: allowedOrigins,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type"],
+    allowHeaders: ["Content-Type", "Authorization"],
   }));
+
+  app.use("/api/*", async (c, next) => {
+    if (adminCredentials && !hasValidBasicCredentials(c.req.header("Authorization"), adminCredentials)) {
+      c.header("WWW-Authenticate", 'Basic realm="Morning Brief Admin", charset="UTF-8"');
+      return c.json({ error: "unauthorized" }, 401);
+    }
+    if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
+      const origin = c.req.header("Origin");
+      if (c.req.header("Sec-Fetch-Site") === "cross-site" || (origin && !allowedOrigins.includes(origin)))
+        return c.json({ error: "cross_site_request_rejected" }, 403);
+    }
+    await next();
+  });
 
   app.onError((error, c) => {
     console.error(error);
@@ -389,29 +483,191 @@ export function createApp({ db, runner = new StubTaskRunner(), now = () => new D
     return c.json(parsed.data);
   });
 
-  app.get("/api/providers", async (c) =>
-    c.json({ items: await db.select().from(providers).orderBy(providers.name).all() }),
-  );
+  async function providerView(id?: string) {
+    const rows = await db.select().from(providers)
+      .where(id ? eq(providers.id, id) : undefined)
+      .orderBy(providers.name).all();
+    const secretRows = await db.select({ providerId: providerSecrets.providerId }).from(providerSecrets).all();
+    const checks = await db.select().from(providerConnectionChecks).all();
+    const modelCounts = await db.select({ providerId: models.providerId, value: count() })
+      .from(models).groupBy(models.providerId).all();
+    const encrypted = new Set(secretRows.map((row) => row.providerId));
+    return rows.map((row) => {
+      const check = checks.find((entry) => entry.providerId === row.id);
+      const keyConfigured = encrypted.has(row.id) || Boolean(process.env[row.secretEnvRef]);
+      return {
+        id: row.id,
+        name: row.name,
+        protocol: row.protocol,
+        baseUrl: row.baseUrl,
+        enabled: row.enabled,
+        keyConfigured,
+        health: check?.status ?? "unknown",
+        checkedAt: check?.checkedAt ?? null,
+        connectionMessage: check?.message ?? null,
+        modelCount: modelCounts.find((entry) => entry.providerId === row.id)?.value ?? 0,
+      };
+    });
+  }
+
+  async function providerApiKey(providerId: string, secretEnvRef: string) {
+    const encrypted = await db.select().from(providerSecrets)
+      .where(eq(providerSecrets.providerId, providerId)).get();
+    if (encrypted) {
+      const key = readMasterKey();
+      if (!key) throw new Error("master_key_unavailable");
+      return decryptSecret(encrypted, key);
+    }
+    return process.env[secretEnvRef];
+  }
+
+  async function discoverProviderModels(providerId: string) {
+    const provider = await db.select().from(providers).where(eq(providers.id, providerId)).get();
+    if (!provider) return { error: "not_found" as const };
+    const validated = await validateProviderBaseUrl(provider.baseUrl, {
+      ...(resolveHostname ? { resolveHostname } : {}),
+      allowHttp: allowInsecureProviderHttp,
+    });
+    if (!validated.ok) return { error: "unsafe_provider_url" as const, reason: validated.reason };
+    const apiKey = await providerApiKey(provider.id, provider.secretEnvRef);
+    if (!apiKey) return { error: "key_not_configured" as const };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const response = await fetchImpl(`${provider.baseUrl.replace(/\/$/, "")}/models`, {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+        signal: controller.signal,
+        redirect: "manual",
+      });
+      if (response.status >= 300 && response.status < 400)
+        return { error: "unsafe_redirect" as const };
+      if (!response.ok) return { error: "connection_failed" as const, status: response.status };
+      const payload = await response.json() as { data?: Array<{ id?: unknown }> };
+      const discovered = (Array.isArray(payload.data) ? payload.data : [])
+        .map((entry) => typeof entry.id === "string" ? entry.id : "")
+        .filter(Boolean).sort().map((modelId) => ({ modelId, displayName: modelId }));
+      return { models: discovered };
+    } catch (error) {
+      return { error: error instanceof DOMException && error.name === "AbortError"
+        ? "connection_timeout" as const : "connection_failed" as const };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function recordConnection(providerId: string, status: "healthy" | "error", modelCount: number, message: string) {
+    const values = { providerId, status, modelCount, message, checkedAt: now().toISOString() };
+    await db.insert(providerConnectionChecks).values(values).onConflictDoUpdate({
+      target: providerConnectionChecks.providerId,
+      set: { status, modelCount, message, checkedAt: values.checkedAt },
+    }).run();
+  }
+
+  app.get("/api/providers", async (c) => c.json({ items: await providerView() }));
 
   app.post("/api/providers", async (c) => {
-    const parsed = providerInputSchema.safeParse(await bodyJson(c));
+    const parsed = providerCreateSchema.safeParse(await bodyJson(c));
     if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const validated = await validateProviderBaseUrl(parsed.data.baseUrl, {
+      ...(resolveHostname ? { resolveHostname } : {}),
+      allowHttp: allowInsecureProviderHttp,
+    });
+    if (!validated.ok) return c.json({ error: "unsafe_provider_url", reason: validated.reason }, 400);
     const id = crypto.randomUUID();
-    await db.insert(providers).values({ id, ...parsed.data }).run();
-    return c.json(await db.select().from(providers).where(eq(providers.id, id)).get(), 201);
+    const { apiKey, ...input } = parsed.data;
+    const secretEnvRef = input.secretEnvRef ?? `MORNING_BRIEF_PROVIDER_${id.replaceAll("-", "_").toUpperCase()}_KEY`;
+    if (apiKey && !readMasterKey()) return c.json({ error: "master_key_not_configured" }, 503);
+    await db.insert(providers).values({ id, ...input, secretEnvRef }).run();
+    if (apiKey) {
+      const secret = encryptSecret(apiKey, readMasterKey()!);
+      await db.insert(providerSecrets).values({ providerId: id, ...secret }).run();
+    }
+    return c.json((await providerView(id))[0], 201);
   });
 
   app.put("/api/providers/:id", async (c) => {
-    const parsed = providerInputSchema.safeParse(await bodyJson(c));
+    const parsed = providerUpdateSchema.safeParse(await bodyJson(c));
     if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const validated = await validateProviderBaseUrl(parsed.data.baseUrl, {
+      ...(resolveHostname ? { resolveHostname } : {}),
+      allowHttp: allowInsecureProviderHttp,
+    });
+    if (!validated.ok) return c.json({ error: "unsafe_provider_url", reason: validated.reason }, 400);
     const id = c.req.param("id");
+    if (parsed.data.apiKey && !readMasterKey()) return c.json({ error: "master_key_not_configured" }, 503);
     const result = await db
       .update(providers)
-      .set({ ...parsed.data, updatedAt: now().toISOString() })
+      .set({ name: parsed.data.name, protocol: parsed.data.protocol, baseUrl: parsed.data.baseUrl,
+        enabled: parsed.data.enabled, updatedAt: now().toISOString() })
       .where(eq(providers.id, id))
       .run();
     if (!result.rowsAffected) return c.json({ error: "not_found" }, 404);
-    return c.json(await db.select().from(providers).where(eq(providers.id, id)).get());
+    if (parsed.data.apiKey) {
+      const key = readMasterKey();
+      if (!key) return c.json({ error: "master_key_not_configured" }, 503);
+      const secret = encryptSecret(parsed.data.apiKey, key);
+      await db.insert(providerSecrets).values({ providerId: id, ...secret }).onConflictDoUpdate({
+        target: providerSecrets.providerId,
+        set: { ...secret, updatedAt: now().toISOString() },
+      }).run();
+    }
+    return c.json((await providerView(id))[0]);
+  });
+
+  app.post("/api/providers/:id/test", async (c) => {
+    try {
+      const result = await discoverProviderModels(c.req.param("id"));
+      if ("error" in result) {
+        const message = result.error === "key_not_configured" ? "API Key 未配置"
+          : result.error === "connection_timeout" ? "连接超时" : "连接失败";
+        if (result.error !== "not_found") await recordConnection(c.req.param("id"), "error", 0, message);
+        return c.json({
+          ok: false,
+          error: result.error,
+          provider: result.error === "not_found" ? undefined : (await providerView(c.req.param("id")))[0],
+        }, result.error === "not_found" ? 404 : 502);
+      }
+      await recordConnection(c.req.param("id"), "healthy", result.models.length, "连接正常");
+      return c.json({
+        ok: true,
+        modelCount: result.models.length,
+        checkedAt: now().toISOString(),
+        provider: (await providerView(c.req.param("id")))[0],
+      });
+    } catch (error) {
+      const code = error instanceof Error && error.message === "master_key_unavailable"
+        ? "master_key_unavailable" : "connection_failed";
+      return c.json({
+        ok: false,
+        error: code,
+        provider: (await providerView(c.req.param("id")))[0],
+      }, 503);
+    }
+  });
+
+  app.get("/api/providers/:id/discover-models", async (c) => {
+    try {
+      const result = await discoverProviderModels(c.req.param("id"));
+      if ("error" in result) return c.json({ error: result.error }, result.error === "not_found" ? 404 : 502);
+      return c.json({ items: result.models });
+    } catch {
+      return c.json({ error: "master_key_unavailable" }, 503);
+    }
+  });
+
+  app.post("/api/providers/:id/models/import", async (c) => {
+    const parsed = importModelsSchema.safeParse(await bodyJson(c));
+    if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const provider = await db.select({ id: providers.id }).from(providers)
+      .where(eq(providers.id, c.req.param("id"))).get();
+    if (!provider) return c.json({ error: "not_found" }, 404);
+    for (const item of parsed.data.models) {
+      await db.insert(models).values({ id: crypto.randomUUID(), providerId: provider.id,
+        modelId: item.modelId, displayName: item.displayName ?? item.modelId })
+        .onConflictDoUpdate({ target: [models.providerId, models.modelId],
+          set: { displayName: item.displayName ?? item.modelId, enabled: true, updatedAt: now().toISOString() } }).run();
+    }
+    return c.json({ items: await db.select().from(models).where(eq(models.providerId, provider.id)).all() }, 201);
   });
 
   app.delete("/api/providers/:id", async (c) => {
@@ -433,6 +689,112 @@ export function createApp({ db, runner = new StubTaskRunner(), now = () => new D
       .orderBy(models.displayName)
       .all();
     return c.json({ items });
+  });
+
+  app.put("/api/model-config", async (c) => {
+    const parsed = modelConfigSaveSchema.safeParse(await bodyJson(c));
+    if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const config = parsed.data;
+    if (new Set(config.providers.map(({ id }) => id)).size !== config.providers.length
+      || new Set(config.models.map(({ id }) => id)).size !== config.models.length
+      || new Set(config.routes.map(({ task }) => task)).size !== config.routes.length)
+      return c.json({ error: "duplicate_config_identifier" }, 400);
+    if (new Set(config.providers.map(({ name }) => name)).size !== config.providers.length)
+      return c.json({ error: "duplicate_provider_name" }, 409);
+
+    for (const provider of config.providers) {
+      const validated = await validateProviderBaseUrl(provider.baseUrl, {
+        ...(resolveHostname ? { resolveHostname } : {}),
+        allowHttp: allowInsecureProviderHttp,
+      });
+      if (!validated.ok)
+        return c.json({ error: "unsafe_provider_url", providerId: provider.id, reason: validated.reason }, 400);
+    }
+
+    try {
+      await db.transaction(async (tx) => {
+        const existingProviders = await tx.select().from(providers).all();
+        const providerById = new Map(existingProviders.map((provider) => [provider.id, provider]));
+        for (const provider of config.providers) {
+          if (!providerById.has(provider.id)) throw new ModelConfigError("provider_not_found", { providerId: provider.id });
+          providerById.set(provider.id, { ...providerById.get(provider.id)!, ...provider });
+        }
+
+        const existingModels = await tx.select().from(models).all();
+        const modelById = new Map(existingModels.map((model) => [model.id, model]));
+        for (const model of config.models) {
+          if (!modelById.has(model.id)) throw new ModelConfigError("model_not_found", { modelId: model.id });
+          if (!providerById.has(model.providerId))
+            throw new ModelConfigError("model_provider_not_found", { modelId: model.id, providerId: model.providerId });
+          modelById.set(model.id, {
+            ...modelById.get(model.id)!,
+            ...model,
+            supportsStructuredOutput: model.structuredOutput,
+          });
+        }
+
+        for (const route of config.routes) {
+          for (const [role, modelId] of [["primary", route.primaryModelId], ["fallback", route.fallbackModelId]] as const) {
+            if (!modelId) continue;
+            const model = modelById.get(modelId);
+            if (!model) throw new ModelConfigError("route_model_not_found", { task: route.task, role, modelId });
+            const provider = providerById.get(model.providerId);
+            if (!model.enabled || !provider?.enabled)
+              throw new ModelConfigError("route_model_unavailable", { task: route.task, role, modelId });
+          }
+        }
+
+        const updatedAt = now().toISOString();
+        for (const provider of config.providers) {
+          await tx.update(providers).set({
+            name: provider.name,
+            protocol: provider.protocol,
+            baseUrl: provider.baseUrl,
+            enabled: provider.enabled,
+            updatedAt,
+          }).where(eq(providers.id, provider.id)).run();
+        }
+        for (const model of config.models) {
+          await tx.update(models).set({
+            providerId: model.providerId,
+            modelId: model.modelId,
+            displayName: model.displayName,
+            supportsStructuredOutput: model.structuredOutput,
+            enabled: model.enabled,
+            updatedAt,
+          }).where(eq(models.id, model.id)).run();
+        }
+        for (const route of config.routes) {
+          await tx.insert(taskRoutes).values({
+            id: crypto.randomUUID(),
+            taskKind: route.task,
+            primaryModelId: route.primaryModelId,
+            fallbackModelId: route.fallbackModelId ?? null,
+          }).onConflictDoUpdate({
+            target: taskRoutes.taskKind,
+            set: {
+              primaryModelId: route.primaryModelId,
+              fallbackModelId: route.fallbackModelId ?? null,
+              updatedAt,
+            },
+          }).run();
+        }
+      });
+    } catch (error) {
+      if (error instanceof ModelConfigError)
+        return c.json({ error: error.code, details: error.details }, 409);
+      const databaseMessage = `${String(error)} ${String((error as { cause?: unknown })?.cause)}`;
+      if (/SQLITE_CONSTRAINT|UNIQUE constraint|FOREIGN KEY constraint/i.test(databaseMessage))
+        return c.json({ error: "model_config_conflict" }, 409);
+      throw error;
+    }
+
+    return c.json({
+      paused: config.paused ?? false,
+      providers: await providerView(),
+      models: await db.select().from(models).orderBy(models.displayName).all(),
+      routes: await db.select().from(taskRoutes).orderBy(taskRoutes.taskKind).all(),
+    });
   });
 
   app.post("/api/models", async (c) => {
@@ -457,6 +819,13 @@ export function createApp({ db, runner = new StubTaskRunner(), now = () => new D
   });
 
   app.delete("/api/models/:id", async (c) => {
+    const referencedBy = await db.select({ taskKind: taskRoutes.taskKind }).from(taskRoutes)
+      .where(eq(taskRoutes.primaryModelId, c.req.param("id"))).all();
+    if (referencedBy.length) return c.json({
+      error: "model_in_use",
+      message: "Reassign the primary route before deleting this model.",
+      taskKinds: referencedBy.map(({ taskKind }) => taskKind),
+    }, 409);
     const result = await db.delete(models).where(eq(models.id, c.req.param("id"))).run();
     return result.rowsAffected
       ? c.body(null, 204)
@@ -531,6 +900,7 @@ export function createApp({ db, runner = new StubTaskRunner(), now = () => new D
     const body = triggerBodySchema.safeParse((await bodyJson(c)) ?? {});
     if (!task.success || !body.success)
       return c.json({ error: "invalid_task_or_payload" }, 400);
+    if (!runner) return c.json({ error: "runner_unavailable" }, 503);
     const id = crypto.randomUUID();
     await db.insert(pipelineRuns)
       .values({

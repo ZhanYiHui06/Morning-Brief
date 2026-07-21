@@ -77,6 +77,26 @@ export const providers = sqliteTable(
   (table) => [uniqueIndex("provider_name_idx").on(table.name)],
 );
 
+export const providerSecrets = sqliteTable("provider_secrets", {
+  providerId: text("provider_id")
+    .primaryKey()
+    .references(() => providers.id, { onDelete: "cascade" }),
+  ciphertext: text("ciphertext").notNull(),
+  iv: text("iv").notNull(),
+  authTag: text("auth_tag").notNull(),
+  ...timestamps,
+});
+
+export const providerConnectionChecks = sqliteTable("provider_connection_checks", {
+  providerId: text("provider_id")
+    .primaryKey()
+    .references(() => providers.id, { onDelete: "cascade" }),
+  status: text("status").notNull(),
+  modelCount: integer("model_count").notNull().default(0),
+  message: text("message"),
+  checkedAt: text("checked_at").notNull(),
+});
+
 export const models = sqliteTable(
   "models",
   {

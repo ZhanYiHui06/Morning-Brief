@@ -41,10 +41,15 @@ export interface Provider {
   name: string;
   protocol: "openai-compatible";
   baseUrl: string;
-  envSecretRef: string;
   enabled: boolean;
   health: "healthy" | "unknown" | "error";
+  keyConfigured: boolean;
+  modelCount: number;
+  checkedAt?: string;
+  connectionMessage?: string;
 }
+
+export interface DiscoveredModel { modelId: string; displayName: string; }
 
 export interface Model {
   id: string;

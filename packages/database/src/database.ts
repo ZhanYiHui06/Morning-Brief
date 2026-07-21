@@ -45,6 +45,17 @@ export async function migrate(client: ReturnType<typeof createClient>) {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS provider_secrets (
+      provider_id TEXT PRIMARY KEY REFERENCES providers(id) ON DELETE CASCADE,
+      ciphertext TEXT NOT NULL, iv TEXT NOT NULL, auth_tag TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS provider_connection_checks (
+      provider_id TEXT PRIMARY KEY REFERENCES providers(id) ON DELETE CASCADE,
+      status TEXT NOT NULL, model_count INTEGER NOT NULL DEFAULT 0, message TEXT,
+      checked_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS models (
       id TEXT PRIMARY KEY, provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
       model_id TEXT NOT NULL, display_name TEXT NOT NULL, context_window INTEGER,

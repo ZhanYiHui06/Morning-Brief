@@ -1,10 +1,25 @@
 import { brief, contents, dashboard, modelConfig, runs, systemStatus } from "./mock";
-import type { BriefDraft, ContentItem, DashboardData, ModelConfig, Provider, Run, SystemStatus } from "./types";
+import type { BriefDraft, ContentItem, DashboardData, DiscoveredModel, Model, ModelConfig, Provider, Run, SystemStatus } from "./types";
 
 export const apiBaseUrl =
   (import.meta.env.VITE_ADMIN_API_URL as string | undefined)?.replace(/\/$/, "") ||
   (import.meta.env.PROD ? "/api" : "");
 export const isMockMode = !apiBaseUrl;
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly payload: unknown,
+  ) {
+    const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+    const detail = typeof record.error === "string" ? record.error : `HTTP ${status}`;
+    super(`请求失败：${detail}`);
+    this.name = "ApiError";
+  }
+}
+
+export const isApiError = (error: unknown, status?: number): error is ApiError =>
+  error instanceof ApiError && (status === undefined || error.status === status);
 
 async function request<T>(path: string, fallback: T, init?: RequestInit): Promise<T> {
   if (!apiBaseUrl) return structuredClone(fallback);
@@ -12,7 +27,15 @@ async function request<T>(path: string, fallback: T, init?: RequestInit): Promis
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers }
   });
-  if (!response.ok) throw new Error(`请求失败：${response.status}`);
+  if (!response.ok) {
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = { error: response.statusText || `HTTP ${response.status}` };
+    }
+    throw new ApiError(response.status, payload);
+  }
   return response.status === 204 ? fallback : response.json() as Promise<T>;
 }
 
@@ -109,13 +132,23 @@ function mapBrief(value: unknown): BriefDraft {
 function mapRun(value: unknown): Run {
   const item = object(value);
   const status = text(item.status, "running");
+  const mappedStatus = (status === "queued" ? "running" : status) as Run["status"];
+  const startedAt = text(item.startedAt, text(item.createdAt));
+  const finishedAt = text(item.finishedAt);
+  const startedMs = Date.parse(startedAt);
+  const finishedMs = Date.parse(finishedAt);
+  const durationMs = Number.isFinite(startedMs) && Number.isFinite(finishedMs)
+    ? Math.max(0, finishedMs - startedMs)
+    : undefined;
+  const taskName = text(item.taskName, "任务");
   return {
     id: text(item.id),
-    startedAt: text(item.startedAt, text(item.createdAt)),
-    status: (status === "queued" ? "running" : status) as Run["status"],
+    startedAt,
+    durationMs,
+    status: mappedStatus,
     trigger: text(item.requestedBy) === "schedule" ? "schedule" : "manual",
-    summary: text(item.error, text(item.taskName)),
-    stages: []
+    summary: text(item.error, taskName),
+    stages: status === "queued" ? [] : [{ name: taskName, status: mappedStatus, message: text(item.error) || undefined }]
   };
 }
 
@@ -126,9 +159,12 @@ function mapProvider(value: unknown): Provider {
     name: text(item.name),
     protocol: "openai-compatible",
     baseUrl: text(item.baseUrl),
-    envSecretRef: text(item.secretEnvRef),
     enabled: Boolean(item.enabled),
-    health: "unknown"
+    health: text(item.health, "unknown") as Provider["health"],
+    keyConfigured: Boolean(item.keyConfigured),
+    modelCount: number(item.modelCount),
+    checkedAt: text(item.checkedAt) || undefined,
+    connectionMessage: text(item.connectionMessage) || undefined
   };
 }
 
@@ -168,57 +204,21 @@ async function loadModelConfig(): Promise<ModelConfig> {
 
 async function saveModelConfig(config: ModelConfig) {
   if (!apiBaseUrl) return structuredClone(config);
-  await Promise.all(config.providers.map(async (provider) => {
-    const body = {
-      name: provider.name,
-      protocol: provider.protocol,
-      baseUrl: provider.baseUrl,
-      secretEnvRef: provider.envSecretRef,
-      enabled: provider.enabled
-    };
-    try {
-      await request(`/providers/${provider.id}`, provider, {
-        method: "PUT",
-        body: JSON.stringify(body)
-      });
-    } catch {
-      await request("/providers", provider, { method: "POST", body: JSON.stringify(body) });
-    }
-  }));
-  await Promise.all(config.models.map(async (model) => {
-    const body = {
-      providerId: model.providerId,
-      modelId: model.modelId,
-      displayName: model.displayName,
-      supportsStructuredOutput: model.structuredOutput,
-      enabled: model.enabled
-    };
-    try {
-      await request(`/models/${model.id}`, model, {
-        method: "PUT",
-        body: JSON.stringify(body)
-      });
-    } catch {
-      await request("/models", model, { method: "POST", body: JSON.stringify(body) });
-    }
-  }));
-  await Promise.all(config.routes.map(async (route) => {
-    const body = {
-      taskKind: route.task,
-      primaryModelId: route.primaryModelId,
-      fallbackModelId: route.fallbackModelId || null,
-      timeoutMs: 60_000,
-      maxRetries: 1
-    };
-    try {
-      await request(`/task-routes/by-kind/${encodeURIComponent(route.task)}`, route, {
-        method: "PUT",
-        body: JSON.stringify(body)
-      });
-    } catch {
-      await request("/task-routes", route, { method: "POST", body: JSON.stringify(body) });
-    }
-  }));
+  await request("/model-config", {}, {
+    method: "PUT",
+    body: JSON.stringify({
+      paused: config.paused,
+      providers: config.providers.map(({ id, name, protocol, baseUrl, enabled }) => ({
+        id, name, protocol, baseUrl, enabled,
+      })),
+      models: config.models.map(({ id, providerId, modelId, displayName, enabled, structuredOutput }) => ({
+        id, providerId, modelId, displayName, enabled, structuredOutput,
+      })),
+      routes: config.routes.map(({ task, primaryModelId, fallbackModelId }) => ({
+        task, primaryModelId, fallbackModelId,
+      })),
+    }),
+  });
   return config;
 }
 
@@ -235,19 +235,53 @@ export const api = {
     ? structuredClone(brief)
     : mapBrief(await request("/briefs/latest", brief)),
   modelConfig: loadModelConfig,
-  createProvider: async (provider: Omit<Provider, "id" | "health">) => {
-    if (!apiBaseUrl) return { ...provider, id: crypto.randomUUID(), health: "unknown" as const };
+  createProvider: async (provider: { name: string; baseUrl: string; apiKey: string; enabled: boolean }) => {
+    if (!apiBaseUrl) return { id: crypto.randomUUID(), name: provider.name, baseUrl: provider.baseUrl,
+      protocol: "openai-compatible" as const, enabled: provider.enabled, health: "unknown" as const,
+      keyConfigured: Boolean(provider.apiKey), modelCount: 0 };
     const created = await request<unknown>("/providers", {}, {
       method: "POST",
       body: JSON.stringify({
         name: provider.name,
-        protocol: provider.protocol,
+        protocol: "openai-compatible",
         baseUrl: provider.baseUrl,
-        secretEnvRef: provider.envSecretRef,
+        apiKey: provider.apiKey,
         enabled: provider.enabled
       })
     });
     return mapProvider(created);
+  },
+  updateProvider: async (provider: Provider, apiKey?: string) => {
+    if (!apiBaseUrl) return { ...provider, keyConfigured: provider.keyConfigured || Boolean(apiKey) };
+    return mapProvider(await request<unknown>(`/providers/${provider.id}`, {}, {
+      method: "PUT", body: JSON.stringify({ name: provider.name, protocol: provider.protocol,
+        baseUrl: provider.baseUrl, enabled: provider.enabled, ...(apiKey ? { apiKey } : {}) })
+    }));
+  },
+  testProvider: (id: string) => request<{ ok: boolean; modelCount: number; checkedAt: string }>(
+    `/providers/${id}/test`, { ok: true, modelCount: 3, checkedAt: new Date().toISOString() },
+    { method: "POST", body: "{}" }),
+  discoverModels: async (id: string): Promise<DiscoveredModel[]> => {
+    if (!apiBaseUrl) return ["brief-model", "fast-model", "reasoning-model"].map((modelId) => ({ modelId, displayName: modelId }));
+    const result = await request<RecordValue>(`/providers/${id}/discover-models`, { items: [] });
+    return array(result.items).map((value) => {
+      const item = object(value); return { modelId: text(item.modelId), displayName: text(item.displayName) };
+    });
+  },
+  importModels: async (providerId: string, items: DiscoveredModel[]): Promise<Model[]> => {
+    if (!apiBaseUrl) return items.map((item) => ({ id: crypto.randomUUID(), providerId, ...item, enabled: true, structuredOutput: false }));
+    const result = await request<RecordValue>(`/providers/${providerId}/models/import`, { items: [] }, {
+      method: "POST", body: JSON.stringify({ models: items })
+    });
+    return array(result.items).map((value) => {
+      const item = object(value); return { id: text(item.id), providerId: text(item.providerId),
+        modelId: text(item.modelId), displayName: text(item.displayName), enabled: Boolean(item.enabled),
+        structuredOutput: Boolean(item.supportsStructuredOutput) };
+    });
+  },
+  deleteModel: async (id: string) => {
+    if (!apiBaseUrl) return;
+    await request(`/models/${id}`, {}, { method: "DELETE" });
   },
   runs: async () => {
     if (isMockMode) return structuredClone(runs);

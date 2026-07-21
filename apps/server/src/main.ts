@@ -42,8 +42,23 @@ if (defaultBaseUrl && defaultModel && process.env.MORNING_BRIEF_LLM_API_KEY) {
 
 const port = Number(process.env.ADMIN_API_PORT ?? process.env.PORT ?? 8787);
 const hostname = process.env.ADMIN_API_HOST ?? "127.0.0.1";
+const adminUsername = process.env.ADMIN_BASIC_AUTH_USER;
+const adminPassword = process.env.ADMIN_BASIC_AUTH_PASSWORD;
+if (process.env.NODE_ENV === "production" && (!adminUsername || !adminPassword)) {
+  throw new Error("ADMIN_BASIC_AUTH_USER and ADMIN_BASIC_AUTH_PASSWORD are required in production");
+}
 const runner = process.env.NODE_ENV === "production"
   ? new ProcessTaskRunner()
   : undefined;
-serve({ fetch: createApp({ db, ...(runner ? { runner } : {}) }).fetch, port, hostname });
+serve({
+  fetch: createApp({
+    db,
+    ...(runner ? { runner } : {}),
+    ...(adminUsername && adminPassword
+      ? { adminCredentials: { username: adminUsername, password: adminPassword } }
+      : {}),
+  }).fetch,
+  port,
+  hostname,
+});
 console.log(`Morning Brief admin API listening on http://${hostname}:${port}`);

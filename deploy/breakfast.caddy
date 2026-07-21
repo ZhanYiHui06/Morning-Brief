@@ -1,6 +1,15 @@
 breakfast.151014.xyz {
 	encode zstd gzip
 
+	@adminProtected path /admin /admin/* /api/*
+	basic_auth @adminProtected {
+		{$ADMIN_BASIC_AUTH_USER} {$ADMIN_BASIC_AUTH_PASSWORD_HASH}
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8787
+	}
+
 	handle /admin {
 		redir * /admin/ 308
 	}

@@ -8,6 +8,13 @@ export interface StructuredLlm {
   ): Promise<T>;
 }
 
+export class LlmHttpError extends Error {
+  constructor(public readonly status: number) {
+    super(`LLM request failed: HTTP ${status}`);
+    this.name = "LlmHttpError";
+  }
+}
+
 const chatCompletionSchema = z.object({
   choices: z.array(
     z.object({
@@ -74,7 +81,7 @@ export class OpenAiCompatibleLlm implements StructuredLlm {
       },
     );
     if (!response.ok) {
-      throw new Error(`LLM request failed: HTTP ${response.status}`);
+      throw new LlmHttpError(response.status);
     }
     const completion = chatCompletionSchema.parse(await response.json());
     const content = completion.choices[0]?.message.content;

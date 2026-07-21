@@ -61,8 +61,8 @@ export const brief: BriefDraft = {
 export const modelConfig: ModelConfig = {
   paused: false,
   providers: [
-    { id: "primary", name: "主要兼容接口", protocol: "openai-compatible", baseUrl: "https://api.example.com/v1", envSecretRef: "PRIMARY_LLM_API_KEY", enabled: true, health: "healthy" },
-    { id: "backup", name: "备用兼容接口", protocol: "openai-compatible", baseUrl: "https://backup.example.com/v1", envSecretRef: "BACKUP_LLM_API_KEY", enabled: false, health: "unknown" }
+    { id: "primary", name: "主要兼容接口", protocol: "openai-compatible", baseUrl: "https://api.example.com/v1", enabled: true, health: "healthy", keyConfigured: true, modelCount: 3 },
+    { id: "backup", name: "备用兼容接口", protocol: "openai-compatible", baseUrl: "https://backup.example.com/v1", enabled: false, health: "unknown", keyConfigured: false, modelCount: 0 }
   ],
   models: [
     { id: "fast", providerId: "primary", modelId: "fast-model", displayName: "快速分类模型", enabled: true, structuredOutput: true },
@@ -70,9 +70,7 @@ export const modelConfig: ModelConfig = {
     { id: "strong", providerId: "primary", modelId: "strong-model", displayName: "最终编辑模型", enabled: true, structuredOutput: true }
   ],
   routes: [
-    { task: "classify", label: "相关性分类", primaryModelId: "fast", fallbackModelId: "main" },
-    { task: "builder-summary", label: "Builders 摘要", primaryModelId: "main", fallbackModelId: "strong" },
-    { task: "final-brief", label: "最终晨报", primaryModelId: "strong", fallbackModelId: "main" }
+    { task: "daily-overview", label: "每日晨报", primaryModelId: "main", fallbackModelId: "strong" }
   ]
 };
 
