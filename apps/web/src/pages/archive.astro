@@ -28,7 +28,7 @@ const briefs = loadBriefs();
 
 <style>
   .archive-head { display: grid; grid-template-columns: 1.35fr .65fr; gap: 70px; align-items: end; padding: 34px 0 68px; }
-  .archive h1 { margin: 15px 0 0; font-size: clamp(54px, 9vw, 112px); line-height: .9; }
+  .archive h1 { margin: 15px 0 0; font-size: var(--page-title-size); line-height: var(--page-title-line-height); }
   .archive-head > p { margin: 0; padding-bottom: 7px; color: var(--ink-2); line-height: 1.8; }
   .archive-list { border-top: 2px solid var(--ink); }
   .archive-list a { display: grid; grid-template-columns: 60px 150px minmax(0, 1fr) auto; gap: 24px; align-items: start; padding: 28px 8px 30px 0; border-bottom: 1px solid var(--line); transition: padding 160ms ease, background-color 160ms ease; }
@@ -41,7 +41,6 @@ const briefs = loadBriefs();
   .archive-list b { color: var(--signal); font-size: 12px; }
   @media (max-width: 720px) {
     .archive-head { grid-template-columns: 1fr; gap: 20px; padding-bottom: 48px; }
-    .archive h1 { font-size: 64px; }
     .archive-list a { grid-template-columns: 38px 1fr; gap: 12px; }
     .archive-list time, .entry-copy { grid-column: 2; }
     .archive-list time { grid-row: 1; }

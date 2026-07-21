@@ -216,6 +216,8 @@ const pathname = Astro.url.pathname;
     --danger: #a93d36;
     --font: "Geist Variable", "OPPO Sans Local", "PingFang SC", "Microsoft YaHei", sans-serif;
     --mono: "Geist Mono", ui-monospace, monospace;
+    --page-title-size: clamp(42px, 5.8vw, 76px);
+    --page-title-line-height: 1.02;
     font-family: var(--font);
   }
 
@@ -270,6 +272,7 @@ const pathname = Astro.url.pathname;
   :root[data-theme="light"] { color-scheme: light; --paper: #f2f0e9; --surface: #fbfaf6; --ink: #161612; --ink-2: #56564f; --line: #cbc8bd; --line-strong: #8f8c82; --signal: #ef4f2f; --signal-soft: #ffe0d6; }
   :root[data-theme="dark"] { color-scheme: dark; --paper: #171713; --surface: #20201b; --ink: #f1efe7; --ink-2: #aaa79d; --line: #3a3932; --line-strong: #77736a; --signal: #ff6748; --signal-soft: #4b261f; }
   @media (max-width: 720px) {
+    :root { --page-title-size: clamp(38px, 10.8vw, 54px); }
     .site-header { min-height: 96px; grid-template-columns: 1fr auto; padding: 12px 18px; row-gap: 6px; }
     .site-header nav { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
     .edition { display: none; }
