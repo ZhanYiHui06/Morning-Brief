@@ -43,7 +43,6 @@ packages/
   database/  SQLite Schema、迁移与访问层
 deploy/      Docker、Caddy、cron 与生产配置模板
 docs/        架构与设计原则
-design/      早期页面设计和交互原型
 ```
 
 ## 技术栈
