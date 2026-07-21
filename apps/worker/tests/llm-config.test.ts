@@ -128,6 +128,43 @@ describe("loadRoutedLlm", () => {
     routed?.close();
   });
 
+  it("accepts structured output returned in reasoning_content", async () => {
+    const filename = await createFixture();
+    process.env.TEST_ROUTED_LLM_KEY = "test-only-secret";
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      choices: [{ message: { role: "assistant", reasoning_content: '{"result":"ok"}' } }],
+    }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    const routed = await loadRoutedLlm("daily-overview", filename, { fetcher });
+    await expect(routed?.llm.generate("prompt", resultSchema)).resolves.toEqual({ result: "ok" });
+    routed?.close();
+  });
+
+  it("accepts array-form OpenAI content", async () => {
+    const filename = await createFixture();
+    process.env.TEST_ROUTED_LLM_KEY = "test-only-secret";
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: [{ type: "text", text: '{"result":"ok"}' }] } }],
+    }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    const routed = await loadRoutedLlm("daily-overview", filename, { fetcher });
+    await expect(routed?.llm.generate("prompt", resultSchema)).resolves.toEqual({ result: "ok" });
+    routed?.close();
+  });
+
+  it("retries HTTP 429 responses and honors a zero Retry-After", async () => {
+    const filename = await createFixture({ maxRetries: 1 });
+    process.env.TEST_ROUTED_LLM_KEY = "test-only-secret";
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response("rate limited", {
+        status: 429,
+        headers: { "retry-after": "0" },
+      }))
+      .mockResolvedValueOnce(completion('{"result":"ok"}')) as unknown as typeof fetch;
+    const routed = await loadRoutedLlm("daily-overview", filename, { fetcher });
+    await expect(routed?.llm.generate("prompt", resultSchema)).resolves.toEqual({ result: "ok" });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    routed?.close();
+  });
+
   it("reports encrypted secrets with missing or wrong master keys", async () => {
     const key = Buffer.alloc(32, 8);
     const filename = await createFixture({ encryptedPrimaryKey: { value: "secret", key } });

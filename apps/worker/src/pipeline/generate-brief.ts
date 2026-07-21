@@ -271,21 +271,29 @@ export async function generateDailyBrief(input: {
       ).values(),
     ];
     const translations = new Map<string, string>();
-    await Promise.all(translatableSources.map(async (source) => {
-      try {
-        translations.set(
-          source.id,
-          await translateToChinese(source.content, input.llm!),
-        );
-      } catch (error) {
-        if (status === "complete") status = "partial";
-        warnings.push(
-          `Translation failed for ${source.id}; original content preserved: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+    let nextTranslation = 0;
+    const translateWorker = async () => {
+      while (nextTranslation < translatableSources.length) {
+        const source = translatableSources[nextTranslation++];
+        if (!source) return;
+        try {
+          translations.set(
+            source.id,
+            await translateToChinese(source.content, input.llm!),
+          );
+        } catch (error) {
+          if (status === "complete") status = "partial";
+          warnings.push(
+            `Translation failed for ${source.id}; original content preserved: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
       }
-    }));
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(2, translatableSources.length) }, translateWorker),
+    );
     builderTopics = builderTopics.map((topic) => ({
       ...topic,
       entries: topic.entries.map((entry) => ({

@@ -38,6 +38,12 @@ function isRetryable(error: unknown): boolean {
   return error.status === 429 || error.status >= 500;
 }
 
+async function waitBeforeRetry(error: unknown, attempt: number): Promise<void> {
+  if (!(error instanceof LlmHttpError) || error.status !== 429) return;
+  const delayMs = Math.min(error.retryAfterMs ?? 1_000 * 2 ** (attempt - 1), 30_000);
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
 export class RetryingFallbackLlm implements StructuredLlm {
   constructor(
     private readonly candidates: RouteCandidate[],
@@ -60,6 +66,7 @@ export class RetryingFallbackLlm implements StructuredLlm {
             `${candidate.role} model ${candidate.modelId} attempt ${attempt}/${attempts}: ${errorMessage(error)}`,
           );
           if (!isRetryable(error)) break;
+          if (attempt < attempts) await waitBeforeRetry(error, attempt);
         }
       }
     }
