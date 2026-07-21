@@ -72,6 +72,17 @@ function dateInTimeZone(date: Date, timeZone = process.env.TZ ?? "Asia/Shanghai"
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
+function addCalendarDays(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00+08:00`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return dateInTimeZone(value);
+}
+
+function scheduledDateTime(date: string, time: string | undefined) {
+  if (!time || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return undefined;
+  return new Date(`${date}T${time}:00+08:00`);
+}
+
 async function bodyJson(c: { req: { json: () => Promise<unknown> } }) {
   try {
     return await c.req.json();
@@ -84,7 +95,11 @@ export function createApp({ db, runner = new StubTaskRunner(), now = () => new D
   const app = new Hono();
 
   app.use("/api/*", cors({
-    origin: ["http://127.0.0.1:5173", "http://localhost:5173"],
+    origin: [
+      "http://127.0.0.1:5173", "http://localhost:5173",
+      "http://127.0.0.1:5174", "http://localhost:5174",
+      "http://127.0.0.1:5175", "http://localhost:5175",
+    ],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type"],
   }));
@@ -94,9 +109,24 @@ export function createApp({ db, runner = new StubTaskRunner(), now = () => new D
     return c.json({ error: "internal_error" }, 500);
   });
 
-  app.get("/health", (c) =>
-    c.json({ ok: true, service: "morning-brief-admin-api" }),
-  );
+  app.get("/health", async (c) => {
+    try {
+      await db.select({ value: count() }).from(pipelineRuns).get();
+      return c.json({
+        ok: true,
+        service: "morning-brief-admin-api",
+        database: true,
+        checkedAt: now().toISOString(),
+      });
+    } catch {
+      return c.json({
+        ok: false,
+        service: "morning-brief-admin-api",
+        database: false,
+        checkedAt: now().toISOString(),
+      }, 503);
+    }
+  });
 
   app.get("/api/dashboard", async (c) => {
     const date = dateInTimeZone(now());
@@ -125,6 +155,61 @@ export function createApp({ db, runner = new StubTaskRunner(), now = () => new D
           .where(eq(deliveryRecords.briefId, brief.id))
           .all()
       : [];
+    const checkedAt = now();
+    const automationEnabled = process.env.AUTOMATION_ENABLED !== "false";
+    const schedulerInstalled = process.env.DAILY_SCHEDULE_INSTALLED === "true";
+    const collectionTime = process.env.DAILY_COLLECTION_TIME || undefined;
+    const scheduledToday = scheduledDateTime(date, collectionTime);
+    const scheduledTomorrow = scheduledDateTime(addCalendarDays(date, 1), collectionTime);
+    const nextRunAt = schedulerInstalled && scheduledToday
+      ? (checkedAt < scheduledToday ? scheduledToday : scheduledTomorrow)?.toISOString()
+      : undefined;
+    const activeRun = recentRuns.find((run) => run.status === "queued" || run.status === "running");
+    const latestRun = recentRuns[0];
+    const latestSuccessfulRun = recentRuns.find((run) => run.status === "succeeded");
+    const latestRunIsToday = latestRun?.createdAt
+      ? dateInTimeZone(new Date(latestRun.createdAt)) === date
+      : false;
+    const overdue = Boolean(
+      scheduledToday
+      && checkedAt.getTime() > scheduledToday.getTime() + 3 * 60 * 60 * 1000
+      && !latestRunIsToday,
+    );
+
+    let serviceStatus: "healthy" | "running" | "attention" | "error" | "paused" = "healthy";
+    let serviceLabel = "运行正常";
+    let serviceMessage = brief?.status === "published"
+      ? "管理 API、数据库和每日计划均正常，今日晨报已发布。"
+      : "管理 API、数据库和每日计划均正常，正在等待下一次计划运行。";
+
+    if (!automationEnabled) {
+      serviceStatus = "paused";
+      serviceLabel = "自动化已暂停";
+      serviceMessage = "服务可以访问，但自动采集与发布当前不会执行。";
+    } else if (!schedulerInstalled) {
+      serviceStatus = "attention";
+      serviceLabel = "定时任务未安装";
+      serviceMessage = "管理 API 和数据库正常，但每日自动运行计划尚未安装。";
+    } else if (activeRun) {
+      serviceStatus = "running";
+      serviceLabel = activeRun.status === "queued" ? "等待执行" : "正在生成晨报";
+      serviceMessage = "自动流程正在运行，完成后页面会更新最新结果。";
+    } else if (latestRun?.status === "failed") {
+      serviceStatus = "error";
+      serviceLabel = "最近运行失败";
+      serviceMessage = latestRun.error
+        ? latestRun.error.split("\n")[0].slice(0, 160)
+        : "最近一次自动流程没有完成，请查看运行记录。";
+    } else if (overdue) {
+      serviceStatus = "attention";
+      serviceLabel = "今日任务尚未运行";
+      serviceMessage = `计划于 ${collectionTime} 开始，但目前没有检测到今日运行记录。`;
+    } else if (latestRunIsToday && latestRun?.status === "succeeded" && brief?.status !== "published") {
+      serviceStatus = "attention";
+      serviceLabel = "发布状态待确认";
+      serviceMessage = "今日流程已经结束，但尚未检测到已发布的晨报。";
+    }
+
     return c.json({
       date,
       content: Object.fromEntries(statusRows.map((row) => [row.status, row.value])),
@@ -133,6 +218,21 @@ export function createApp({ db, runner = new StubTaskRunner(), now = () => new D
         : null,
       delivery,
       recentRuns,
+      service: {
+        status: serviceStatus,
+        label: serviceLabel,
+        message: serviceMessage,
+        checkedAt: checkedAt.toISOString(),
+        lastRunAt: latestRun?.startedAt ?? latestRun?.createdAt ?? null,
+        lastSuccessAt: latestSuccessfulRun?.finishedAt ?? null,
+        nextRunAt: nextRunAt ?? null,
+        components: {
+          api: true,
+          database: true,
+          automation: automationEnabled,
+          scheduler: schedulerInstalled,
+        },
+      },
     });
   });
 

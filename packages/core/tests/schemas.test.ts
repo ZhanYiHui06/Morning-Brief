@@ -4,9 +4,9 @@ import { providerInputSchema, taskRouteInputSchema } from "../src/index.js";
 describe("shared schemas", () => {
   it("accepts an environment reference instead of an API key", () => {
     const provider = providerInputSchema.parse({
-      name: "Local proxy",
-      baseUrl: "http://localhost:8317/v1",
-      secretEnvRef: "MORNING_BRIEF_LLM_KEY",
+      name: "Example provider",
+      baseUrl: "https://api.example.com/v1",
+      secretEnvRef: "PRIMARY_LLM_API_KEY",
     });
     expect(provider.enabled).toBe(true);
     expect(provider).not.toHaveProperty("apiKey");

@@ -3,6 +3,7 @@ import {
   createDatabase,
   migrate,
   models,
+  pipelineRuns,
   providers,
 } from "@morning-brief/database";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,7 +18,10 @@ describe("admin API", () => {
     await migrate(setup.client);
   });
 
-  afterEach(() => setup.client.close());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    setup.client.close();
+  });
 
   it("reports health and dashboard content counts", async () => {
     await setup.db
@@ -36,9 +40,34 @@ describe("admin API", () => {
       db: setup.db,
       now: () => new Date("2026-07-21T08:00:00.000Z"),
     });
-    expect((await app.request("/health")).status).toBe(200);
+    const health = await app.request("/health");
+    expect(health.status).toBe(200);
+    expect((await health.json()).database).toBe(true);
     const response = await app.request("/api/dashboard");
-    expect((await response.json()).content.kept).toBe(1);
+    const dashboard = await response.json();
+    expect(dashboard.content.kept).toBe(1);
+    expect(dashboard.service.components).toMatchObject({ api: true, database: true });
+  });
+
+  it("reports an active pipeline as running", async () => {
+    vi.stubEnv("AUTOMATION_ENABLED", "true");
+    vi.stubEnv("DAILY_SCHEDULE_INSTALLED", "true");
+    vi.stubEnv("DAILY_COLLECTION_TIME", "06:50");
+    await setup.db.insert(pipelineRuns).values({
+      id: "run-active",
+      taskName: "daily",
+      status: "running",
+      requestedBy: "schedule",
+      startedAt: "2026-07-21T06:50:00.000Z",
+      createdAt: "2026-07-21T06:50:00.000Z",
+      updatedAt: "2026-07-21T06:50:00.000Z",
+    }).run();
+    const app = createApp({
+      db: setup.db,
+      now: () => new Date("2026-07-21T08:00:00.000Z"),
+    });
+    const response = await app.request("/api/dashboard");
+    expect((await response.json()).service.status).toBe("running");
   });
 
   it("updates a content review decision", async () => {

@@ -4,6 +4,16 @@ export const dashboard: DashboardData = {
   date: "2026-07-21",
   briefStatus: "published",
   deliveryStatus: "sent",
+  service: {
+    status: "healthy",
+    label: "运行正常",
+    message: "管理 API、数据库和每日计划均正常，今日晨报已发布。",
+    checkedAt: "2026-07-21T13:50:00.000Z",
+    lastRunAt: "2026-07-21T06:50:03+08:00",
+    lastSuccessAt: "2026-07-21T06:50:25+08:00",
+    nextRunAt: "2026-07-22T06:50:00+08:00",
+    components: { api: true, database: true, automation: true, scheduler: true }
+  },
   counts: { collected: 86, kept: 24, dropped: 43, merged: 9, published: 12 },
   stages: [
     { name: "获取 Zara Feed", status: "succeeded", durationMs: 1840 },
@@ -51,13 +61,13 @@ export const brief: BriefDraft = {
 export const modelConfig: ModelConfig = {
   paused: false,
   providers: [
-    { id: "proxy", name: "CLI Proxy API", protocol: "openai-compatible", baseUrl: "http://localhost:8317/v1", envSecretRef: "MORNING_BRIEF_LLM_KEY", enabled: true, health: "healthy" },
-    { id: "backup", name: "备用兼容接口", protocol: "openai-compatible", baseUrl: "https://api.example.com/v1", envSecretRef: "MORNING_BRIEF_BACKUP_KEY", enabled: false, health: "unknown" }
+    { id: "primary", name: "主要兼容接口", protocol: "openai-compatible", baseUrl: "https://api.example.com/v1", envSecretRef: "PRIMARY_LLM_API_KEY", enabled: true, health: "healthy" },
+    { id: "backup", name: "备用兼容接口", protocol: "openai-compatible", baseUrl: "https://backup.example.com/v1", envSecretRef: "BACKUP_LLM_API_KEY", enabled: false, health: "unknown" }
   ],
   models: [
-    { id: "fast", providerId: "proxy", modelId: "fast-model", displayName: "快速分类模型", enabled: true, structuredOutput: true },
-    { id: "main", providerId: "proxy", modelId: "main-model", displayName: "晨报主模型", enabled: true, structuredOutput: true },
-    { id: "strong", providerId: "proxy", modelId: "strong-model", displayName: "最终编辑模型", enabled: true, structuredOutput: true }
+    { id: "fast", providerId: "primary", modelId: "fast-model", displayName: "快速分类模型", enabled: true, structuredOutput: true },
+    { id: "main", providerId: "primary", modelId: "main-model", displayName: "晨报主模型", enabled: true, structuredOutput: true },
+    { id: "strong", providerId: "primary", modelId: "strong-model", displayName: "最终编辑模型", enabled: true, structuredOutput: true }
   ],
   routes: [
     { task: "classify", label: "相关性分类", primaryModelId: "fast", fallbackModelId: "main" },

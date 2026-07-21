@@ -1,5 +1,5 @@
 import { brief, contents, dashboard, modelConfig, runs, systemStatus } from "./mock";
-import type { BriefDraft, ContentItem, DashboardData, ModelConfig, Run, SystemStatus } from "./types";
+import type { BriefDraft, ContentItem, DashboardData, ModelConfig, Provider, Run, SystemStatus } from "./types";
 
 export const apiBaseUrl =
   (import.meta.env.VITE_ADMIN_API_URL as string | undefined)?.replace(/\/$/, "") ||
@@ -30,11 +30,28 @@ function mapDashboard(value: unknown): DashboardData {
   const counts = object(raw.content);
   const delivery = array(raw.delivery).map(object);
   const recentRuns = array(raw.recentRuns).map(object);
+  const service = object(raw.service);
+  const components = object(service.components);
   return {
     date: text(raw.date),
     briefStatus: text(object(raw.brief).status, "draft") as DashboardData["briefStatus"],
     deliveryStatus: delivery.some((item) => item.status === "sent") ? "sent"
       : delivery.some((item) => item.status === "failed") ? "failed" : "not_sent",
+    service: {
+      status: text(service.status, "attention") as DashboardData["service"]["status"],
+      label: text(service.label, "状态未知"),
+      message: text(service.message, "暂时无法判断自动流程的运行状态。"),
+      checkedAt: text(service.checkedAt),
+      lastRunAt: text(service.lastRunAt) || undefined,
+      lastSuccessAt: text(service.lastSuccessAt) || undefined,
+      nextRunAt: text(service.nextRunAt) || undefined,
+      components: {
+        api: Boolean(components.api),
+        database: Boolean(components.database),
+        automation: Boolean(components.automation),
+        scheduler: Boolean(components.scheduler)
+      }
+    },
     counts: {
       collected: Object.values(counts).reduce<number>((sum, value) => sum + number(value), 0),
       kept: number(counts.kept),
@@ -102,6 +119,19 @@ function mapRun(value: unknown): Run {
   };
 }
 
+function mapProvider(value: unknown): Provider {
+  const item = object(value);
+  return {
+    id: text(item.id),
+    name: text(item.name),
+    protocol: "openai-compatible",
+    baseUrl: text(item.baseUrl),
+    envSecretRef: text(item.secretEnvRef),
+    enabled: Boolean(item.enabled),
+    health: "unknown"
+  };
+}
+
 async function loadModelConfig(): Promise<ModelConfig> {
   if (!apiBaseUrl) return structuredClone(modelConfig);
   const [providerResult, modelResult, routeResult] = await Promise.all([
@@ -111,18 +141,7 @@ async function loadModelConfig(): Promise<ModelConfig> {
   ]);
   return {
     paused: false,
-    providers: array(providerResult.items).map((value) => {
-      const item = object(value);
-      return {
-        id: text(item.id),
-        name: text(item.name),
-        protocol: "openai-compatible" as const,
-        baseUrl: text(item.baseUrl),
-        envSecretRef: text(item.secretEnvRef),
-        enabled: Boolean(item.enabled),
-        health: "unknown" as const
-      };
-    }),
+    providers: array(providerResult.items).map(mapProvider),
     models: array(modelResult.items).map((value) => {
       const item = object(value);
       return {
@@ -216,6 +235,20 @@ export const api = {
     ? structuredClone(brief)
     : mapBrief(await request("/briefs/latest", brief)),
   modelConfig: loadModelConfig,
+  createProvider: async (provider: Omit<Provider, "id" | "health">) => {
+    if (!apiBaseUrl) return { ...provider, id: crypto.randomUUID(), health: "unknown" as const };
+    const created = await request<unknown>("/providers", {}, {
+      method: "POST",
+      body: JSON.stringify({
+        name: provider.name,
+        protocol: provider.protocol,
+        baseUrl: provider.baseUrl,
+        secretEnvRef: provider.envSecretRef,
+        enabled: provider.enabled
+      })
+    });
+    return mapProvider(created);
+  },
   runs: async () => {
     if (isMockMode) return structuredClone(runs);
     const result = await request<unknown>("/runs", runs);

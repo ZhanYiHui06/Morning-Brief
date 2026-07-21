@@ -5,6 +5,21 @@ export interface DashboardData {
   date: string;
   briefStatus: "draft" | "published" | "partial";
   deliveryStatus: "not_sent" | "sent" | "failed";
+  service: {
+    status: "healthy" | "running" | "attention" | "error" | "paused";
+    label: string;
+    message: string;
+    checkedAt: string;
+    lastRunAt?: string;
+    lastSuccessAt?: string;
+    nextRunAt?: string;
+    components: {
+      api: boolean;
+      database: boolean;
+      automation: boolean;
+      scheduler: boolean;
+    };
+  };
   counts: { collected: number; kept: number; dropped: number; merged: number; published: number };
   stages: Array<{ name: string; status: RunStatus; durationMs?: number; message?: string }>;
 }

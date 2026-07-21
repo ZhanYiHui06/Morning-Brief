@@ -1,10 +1,15 @@
 from pathlib import Path
+import os
 import re
 import secrets
 import shutil
 import time
 
-config_path = Path("/home/ubuntu/docker/CLIProxyAPI/config.yaml")
+config_path_value = os.environ.get("MORNING_BRIEF_PROXY_CONFIG")
+if not config_path_value:
+    raise RuntimeError("Set MORNING_BRIEF_PROXY_CONFIG to the compatible proxy config path")
+
+config_path = Path(config_path_value)
 config = config_path.read_text(encoding="utf-8")
 managed = re.search(r'^\s*-\s*["\']?([^"\'\s#]+)["\']?\s*#\s*morning-brief-managed-key\s*$', config, re.M)
 
@@ -45,10 +50,10 @@ values = {
     "ZARA_PODCASTS_FEED_URL": "https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-podcasts.json",
     "ZARA_BLOGS_FEED_URL": "https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-blogs.json",
     "GITHUB_TOKEN": existing.get("GITHUB_TOKEN", ""),
-    "LLM_BASE_URL": "http://127.0.0.1:8317/v1",
-    "LLM_MODEL": existing.get("LLM_MODEL") or "gpt-5.4-mini",
+    "LLM_BASE_URL": existing.get("LLM_BASE_URL") or os.environ.get("LLM_BASE_URL", ""),
+    "LLM_MODEL": existing.get("LLM_MODEL", ""),
     "MORNING_BRIEF_LLM_API_KEY": api_key,
-    "PUBLIC_URL": "https://breakfast.151014.xyz",
+    "PUBLIC_URL": existing.get("PUBLIC_URL") or os.environ.get("PUBLIC_URL", ""),
     "OPENCLAW_HOOK_URL": existing.get("OPENCLAW_HOOK_URL", ""),
     "OPENCLAW_HOOK_TOKEN": existing.get("OPENCLAW_HOOK_TOKEN", ""),
     "OPENCLAW_CHANNEL": existing.get("OPENCLAW_CHANNEL", ""),

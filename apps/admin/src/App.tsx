@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, SquaresFour, X
 } from "@phosphor-icons/react";
 import { api, apiBaseUrl, isMockMode } from "./api";
-import type { ContentDecision, ModelConfig, Provider, Run } from "./types";
+import type { ContentDecision, DashboardData, ModelConfig, Provider, Run } from "./types";
 
 type Page = "dashboard" | "content" | "sources" | "models" | "runs" | "settings";
 type Icon = typeof SquaresFour;
@@ -161,13 +161,49 @@ function Dashboard({ flash, go }: { flash: (message: string) => void; go: (page:
   const metrics = [["采集", data.counts.collected], ["保留", data.counts.kept], ["过滤", data.counts.dropped], ["合并", data.counts.merged]];
   const run = async () => { await api.runTask("daily"); flash("完整流水线已进入任务队列"); };
   return <>
-    <PageHead title="今日概况" description={`${data.date}，自动流程会完成采集、筛选、生成和网页发布。`}><span className="automation-badge"><span className="live-dot"/>全自动模式</span><button className="button primary" onClick={run}><Play weight="fill"/>立即运行一次</button></PageHead>
+    <PageHead title="今日概况" description={`${data.date}，自动流程会完成采集、筛选、生成和网页发布。`}><ServiceBadge service={data.service}/><button className="button primary" onClick={run}><Play weight="fill"/>立即运行一次</button></PageHead>
+    <ServiceOverview service={data.service} go={go}/>
     <section className="metric-rail" data-animate>{metrics.map(([label, value], index) => <div key={label}><small>{label}</small><strong>{value}</strong><span>{index === 0 ? "今日原始条目" : "内容决策"}</span></div>)}</section>
     <div className="dashboard-grid">
       <section className="panel pipeline-panel" data-animate><header className="panel-head"><div><span className="section-code">PIPELINE</span><h2>本次运行</h2></div><Status value={data.briefStatus}/></header><div className="stage-list">{data.stages.length ? data.stages.map((stage, index) => <div className="stage" key={`${stage.name}-${index}`}><span className="stage-index">{String(index + 1).padStart(2, "0")}</span><Status value={stage.status}/><span><b>{stage.name}</b><small>{stage.message || "阶段执行正常"}</small></span><time>{stage.durationMs ? `${(stage.durationMs / 1000).toFixed(1)}s` : "等待"}</time></div>) : <div className="empty-row">当前没有运行中的阶段。</div>}</div></section>
       <aside className="panel publish-panel" data-animate><header className="panel-head"><div><span className="section-code">PUBLISHING</span><h2>网页发布</h2></div><Article size={20}/></header><div className="panel-body"><Status value={data.briefStatus}/><h3>今日流程已自动完成</h3><p>AI 已完成内容判断、晨报生成和网页发布。发生严重异常时，任务会记录失败并保留上一版页面。</p><a className="button primary full" href="/" target="_blank" rel="noreferrer">打开今日晨报</a><button className="button ghost full" onClick={() => go("content")}>查看今日内容</button></div></aside>
     </div>
   </>;
+}
+
+function serviceTime(value?: string) {
+  if (!value) return "暂无";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "暂无";
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function ServiceBadge({ service }: { service: DashboardData["service"] }) {
+  return <span className={`service-badge service-tone-${service.status}`}><i/>{service.label}</span>;
+}
+
+function ServiceOverview({ service, go }: { service: DashboardData["service"]; go: (page: Page) => void }) {
+  const components = [
+    ["API", service.components.api],
+    ["数据库", service.components.database],
+    ["自动化", service.components.automation],
+    ["定时任务", service.components.scheduler]
+  ] as const;
+  return <section className={`service-overview service-tone-${service.status}`} data-animate>
+    <div className="service-summary"><span className="service-symbol"><Pulse weight="bold"/></span><div><span className="section-code">LIVE STATUS</span><h2>{service.label}</h2><p>{service.message}</p></div></div>
+    <div className="service-facts">
+      <div><small>最近检查</small><b>{serviceTime(service.checkedAt)}</b></div>
+      <div><small>最近成功</small><b>{serviceTime(service.lastSuccessAt)}</b></div>
+      <div><small>下次计划</small><b>{serviceTime(service.nextRunAt)}</b></div>
+    </div>
+    <footer><div className="service-components">{components.map(([label, ready]) => <span className={ready ? "ready" : "not-ready"} key={label}><i/>{label}</span>)}</div><button className="button ghost small" onClick={() => go("runs")}>查看运行记录</button></footer>
+  </section>;
 }
 
 function DailyContent() {
@@ -187,23 +223,64 @@ function Sources({ flash: _flash }: { flash: (message: string) => void }) {
   if (!data) return <Loading error={error}/>;
   return <><PageHead title="信息源" description="这里展示生产环境当前实际启用的采集入口。配置由服务器环境变量管理。"/>
     <section className="panel" data-animate><header className="panel-head"><div><span className="section-code">PRODUCTION SOURCES</span><h2>正在使用的信息源</h2></div><Status value={data.sources.every((source) => source.enabled) ? "succeeded" : "partial"}/></header><div className="source-list">{data.sources.map((source) => <div className="source-row source-row-live" key={source.id}><span className="source-icon">{source.id === "github-trending" ? <GithubLogo/> : <Database/>}</span><span><b>{source.name}</b><small>{source.url || "未配置 URL"}</small></span><span><small>类型</small><b>{source.kind}</b></span><span><small>状态</small><b>{source.enabled ? "已启用" : "未配置"}</b></span><Status value={source.enabled ? "succeeded" : "failed"}/></div>)}</div></section>
-    <aside className="security-note" data-animate><Database/><div><b>来源配置不在浏览器内修改</b><p>Zara Feed 地址由 ZARA_X_FEED_URL、ZARA_PODCASTS_FEED_URL、ZARA_BLOGS_FEED_URL 提供；GitHub 每日读取全球 Trending 前 5。GitHub Token 当前{data.secrets.githubTokenConfigured ? "已配置" : "未配置，公共页面采集仍可运行"}。</p></div></aside>
+    <aside className="security-note sources-note" data-animate><Database/><div><b>来源配置不在浏览器内修改</b><p>Zara Feed 地址由 ZARA_X_FEED_URL、ZARA_PODCASTS_FEED_URL、ZARA_BLOGS_FEED_URL 提供；GitHub 每日读取全球 Trending 前 5。GitHub Token 当前{data.secrets.githubTokenConfigured ? "已配置" : "未配置，公共页面采集仍可运行"}。</p></div></aside>
   </>;
 }
+
+type ProviderDraft = Omit<Provider, "id" | "health">;
+
+const emptyProviderDraft = (): ProviderDraft => ({
+  name: "",
+  protocol: "openai-compatible",
+  baseUrl: "",
+  envSecretRef: "",
+  enabled: true
+});
 
 function ModelSettings({ flash }: { flash: (message: string) => void }) {
   const { data, setData, error } = useLoad(api.modelConfig);
   const [providerId, setProviderId] = useState<string>();
+  const [newProvider, setNewProvider] = useState<ProviderDraft>();
   if (!data) return <Loading error={error} />;
+
   const selected = data.providers.find((provider) => provider.id === providerId);
-  const editProvider = (provider: Provider) => setData({ ...data, providers: data.providers.map((entry) => entry.id === provider.id ? provider : entry) });
-  const save = async () => { await api.saveModelConfig(data); flash("模型配置已保存"); };
-  return <><PageHead title="模型与 API" description="集中管理兼容接口、模型能力和任务路由。密钥只使用环境变量引用。"><button className="button primary" onClick={save}>保存配置</button></PageHead>
+  const validNewProvider = Boolean(
+    newProvider?.name.trim()
+    && newProvider.baseUrl.trim()
+    && /^[A-Z][A-Z0-9_]*$/.test(newProvider.envSecretRef.trim())
+  );
+  const editProvider = (provider: Provider) => setData({
+    ...data,
+    providers: data.providers.map((entry) => entry.id === provider.id ? provider : entry)
+  });
+  const save = async () => {
+    await api.saveModelConfig(data);
+    flash("模型配置已保存");
+  };
+  const createProvider = async () => {
+    if (!newProvider || !validNewProvider) return;
+    const created = await api.createProvider({
+      ...newProvider,
+      name: newProvider.name.trim(),
+      baseUrl: newProvider.baseUrl.trim().replace(/\/$/, ""),
+      envSecretRef: newProvider.envSecretRef.trim()
+    });
+    setData({ ...data, providers: [...data.providers, created] });
+    setNewProvider(undefined);
+    flash("API 提供商已添加");
+  };
+
+  return <>
+    <PageHead title="模型与 API" description="集中管理兼容接口、模型能力和任务路由。密钥只使用环境变量引用。"><button className="button primary" onClick={save}>保存配置</button></PageHead>
     <aside className="security-note" data-animate><Robot/><div><b>密钥不会进入浏览器</b><p>这里只保存环境变量名称。控制台不读取、不显示，也不允许导出 API Key 明文。</p></div></aside>
-    <section className="panel" data-animate><header className="panel-head"><div><span className="section-code">PROVIDERS</span><h2>API 提供商</h2></div><button className="button ghost small" onClick={() => flash("新增 Provider 表单将在接口就绪后开放")}>添加提供商</button></header><div className="provider-table">{data.providers.map((provider) => <button key={provider.id} onClick={() => setProviderId(provider.id)}><Status value={provider.health}/><span><b>{provider.name}</b><small>{provider.baseUrl}</small></span><code>{provider.envSecretRef}</code><span>{provider.enabled ? "已启用" : "已停用"}</span><span>编辑 →</span></button>)}</div></section>
-    <section className="panel" data-animate><header className="panel-head"><div><span className="section-code">MODELS</span><h2>已配置模型</h2></div><span className="muted-label">{data.models.filter((model) => model.enabled).length} 个启用</span></header><div className="model-list">{data.models.map((model) => <article key={model.id}><small>{data.providers.find((provider) => provider.id === model.providerId)?.name}</small><h3>{model.displayName}</h3><code>{model.modelId}</code><span>{model.structuredOutput ? "结构化输出" : "文本输出"}</span></article>)}</div></section>
-    <section className="panel" data-animate><header className="panel-head"><div><span className="section-code">ROUTING</span><h2>任务路由</h2></div><label className="pause"><input type="checkbox" checked={data.paused} onChange={(event) => setData({ ...data, paused: event.target.checked })}/>暂停模型调用</label></header><div className="route-table"><div className="route-header"><span>任务</span><span>主要模型</span><span>备用模型</span></div>{data.routes.map((route) => <div className="route-row" key={route.task}><b>{route.label}</b><select value={route.primaryModelId} onChange={(event) => setData({ ...data, routes: data.routes.map((entry) => entry.task === route.task ? { ...entry, primaryModelId: event.target.value } : entry) })}>{data.models.map((model) => <option key={model.id} value={model.id}>{model.displayName}</option>)}</select><select value={route.fallbackModelId || ""} onChange={(event) => setData({ ...data, routes: data.routes.map((entry) => entry.task === route.task ? { ...entry, fallbackModelId: event.target.value } : entry) })}><option value="">无备用</option>{data.models.map((model) => <option key={model.id} value={model.id}>{model.displayName}</option>)}</select></div>)}</div></section>
-    {selected && <div className="sheet-scrim" onPointerDown={(event) => { if (event.target === event.currentTarget) setProviderId(undefined); }}><aside className="edit-sheet" role="dialog" aria-modal="true" aria-labelledby="provider-title"><header><div><span className="section-code">PROVIDER</span><h2 id="provider-title">编辑 {selected.name}</h2></div><button className="icon-action" onClick={() => setProviderId(undefined)} aria-label="关闭"><X/></button></header><label className="field"><span>显示名称</span><input value={selected.name} onChange={(event) => editProvider({ ...selected, name: event.target.value })}/></label><label className="field"><span>Base URL</span><input value={selected.baseUrl} onChange={(event) => editProvider({ ...selected, baseUrl: event.target.value })}/></label><label className="field"><span>密钥环境变量引用</span><input value={selected.envSecretRef} onChange={(event) => editProvider({ ...selected, envSecretRef: event.target.value })}/><small>例如 MORNING_BRIEF_LLM_KEY，这里不是密钥输入框。</small></label><SettingToggle title="启用 Provider" note="停用后，关联任务使用备用路由" initial={selected.enabled}/><div className="sheet-actions"><button className="button ghost" onClick={() => setProviderId(undefined)}>取消</button><button className="button primary" onClick={() => { setProviderId(undefined); save(); }}>保存更改</button></div></aside></div>}
+    <div className="model-settings-stack">
+      <section className="panel" data-animate><header className="panel-head"><div><span className="section-code">PROVIDERS</span><h2>API 提供商</h2></div><button className="button ghost small" onClick={() => setNewProvider(emptyProviderDraft())}>添加提供商</button></header><div className="provider-table">{data.providers.map((provider) => <button key={provider.id} onClick={() => setProviderId(provider.id)}><Status value={provider.health}/><span><b>{provider.name}</b><small>{provider.baseUrl}</small></span><code>{provider.envSecretRef}</code><span>{provider.enabled ? "已启用" : "已停用"}</span><span>编辑 →</span></button>)}</div></section>
+      <section className="panel" data-animate><header className="panel-head"><div><span className="section-code">MODELS</span><h2>已配置模型</h2></div><span className="muted-label">{data.models.filter((model) => model.enabled).length} 个启用</span></header><div className="model-list">{data.models.map((model) => <article key={model.id}><small>{data.providers.find((provider) => provider.id === model.providerId)?.name}</small><h3>{model.displayName}</h3><code>{model.modelId}</code><span>{model.structuredOutput ? "结构化输出" : "文本输出"}</span></article>)}</div></section>
+      <section className="panel" data-animate><header className="panel-head"><div><span className="section-code">ROUTING</span><h2>任务路由</h2></div><label className="pause"><input type="checkbox" checked={data.paused} onChange={(event) => setData({ ...data, paused: event.target.checked })}/>暂停模型调用</label></header><div className="route-table"><div className="route-header"><span>任务</span><span>主要模型</span><span>备用模型</span></div>{data.routes.map((route) => <div className="route-row" key={route.task}><b>{route.label}</b><select value={route.primaryModelId} onChange={(event) => setData({ ...data, routes: data.routes.map((entry) => entry.task === route.task ? { ...entry, primaryModelId: event.target.value } : entry) })}>{data.models.map((model) => <option key={model.id} value={model.id}>{model.displayName}</option>)}</select><select value={route.fallbackModelId || ""} onChange={(event) => setData({ ...data, routes: data.routes.map((entry) => entry.task === route.task ? { ...entry, fallbackModelId: event.target.value } : entry) })}><option value="">无备用</option>{data.models.map((model) => <option key={model.id} value={model.id}>{model.displayName}</option>)}</select></div>)}</div></section>
+    </div>
+
+    {newProvider && <div className="sheet-scrim modal-scrim" onPointerDown={(event) => { if (event.target === event.currentTarget) setNewProvider(undefined); }}><section className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="new-provider-title" data-animate><header><div><span className="section-code">NEW PROVIDER</span><h2 id="new-provider-title">添加 API 提供商</h2></div><button className="icon-action" onClick={() => setNewProvider(undefined)} aria-label="关闭"><X/></button></header><p className="dialog-intro">填写兼容接口地址和服务器端密钥变量名称。API Key 本身不在这里输入。</p><label className="field"><span>显示名称</span><input autoFocus placeholder="例如：主要兼容接口" value={newProvider.name} onChange={(event) => setNewProvider({ ...newProvider, name: event.target.value })}/></label><label className="field"><span>Base URL</span><input type="url" placeholder="https://api.example.com/v1" value={newProvider.baseUrl} onChange={(event) => setNewProvider({ ...newProvider, baseUrl: event.target.value })}/></label><label className="field"><span>密钥环境变量名称</span><input spellCheck={false} placeholder="PRIMARY_LLM_API_KEY" value={newProvider.envSecretRef} onChange={(event) => setNewProvider({ ...newProvider, envSecretRef: event.target.value.toUpperCase() })}/><small>只允许大写字母、数字和下划线；密钥值继续保存在服务器环境中。</small></label><div className="setting-toggle dialog-toggle"><span><b>添加后立即启用</b><small>停用时不会参与任务路由</small></span><Toggle checked={newProvider.enabled} onChange={(enabled) => setNewProvider({ ...newProvider, enabled })} label="添加后立即启用"/></div><div className="sheet-actions"><button className="button ghost" onClick={() => setNewProvider(undefined)}>取消</button><button className="button primary" disabled={!validNewProvider} onClick={createProvider}>添加提供商</button></div></section></div>}
+    {selected && <div className="sheet-scrim" onPointerDown={(event) => { if (event.target === event.currentTarget) setProviderId(undefined); }}><aside className="edit-sheet" role="dialog" aria-modal="true" aria-labelledby="provider-title"><header><div><span className="section-code">PROVIDER</span><h2 id="provider-title">编辑 {selected.name}</h2></div><button className="icon-action" onClick={() => setProviderId(undefined)} aria-label="关闭"><X/></button></header><label className="field"><span>显示名称</span><input value={selected.name} onChange={(event) => editProvider({ ...selected, name: event.target.value })}/></label><label className="field"><span>Base URL</span><input value={selected.baseUrl} onChange={(event) => editProvider({ ...selected, baseUrl: event.target.value })}/></label><label className="field"><span>密钥环境变量引用</span><input value={selected.envSecretRef} onChange={(event) => editProvider({ ...selected, envSecretRef: event.target.value })}/><small>例如 PRIMARY_LLM_API_KEY，这里不是密钥输入框。</small></label><SettingToggle title="启用 Provider" note="停用后，关联任务使用备用路由" initial={selected.enabled}/><div className="sheet-actions"><button className="button ghost" onClick={() => setProviderId(undefined)}>取消</button><button className="button primary" onClick={() => { setProviderId(undefined); save(); }}>保存更改</button></div></aside></div>}
   </>;
 }
 
