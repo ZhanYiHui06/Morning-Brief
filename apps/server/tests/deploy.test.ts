@@ -19,4 +19,12 @@ describe("production admin edge configuration", () => {
     expect(bootstrap).toContain("EnvironmentFile=/etc/morning-brief/caddy-admin.env");
     expect(bootstrap).toContain('subprocess.run(["systemctl", "try-restart", "caddy"]');
   });
+
+  it("serves published briefs from the worker output with safe cache boundaries", async () => {
+    const caddyfile = await readFile(path.join(repositoryRoot, "deploy", "breakfast.caddy"), "utf8");
+    expect(caddyfile).toContain("root * /var/lib/morning-brief/public/current");
+    expect(caddyfile).not.toContain("root * /srv/morning-brief/current");
+    expect(caddyfile).toContain('header @immutable Cache-Control "public, max-age=31536000, immutable"');
+    expect(caddyfile).toContain('header @revalidate Cache-Control "no-cache, must-revalidate"');
+  });
 });
