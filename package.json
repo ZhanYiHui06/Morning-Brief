@@ -1,0 +1,25 @@
+{
+  "name": "morning-brief",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present build",
+    "check": "pnpm -r --if-present check",
+    "dev": "node scripts/run-with-env.mjs --parallel --filter @morning-brief/server --filter @morning-brief/web --filter @morning-brief/admin dev",
+    "dev:admin": "node scripts/run-with-env.mjs --filter @morning-brief/admin dev",
+    "dev:server": "node scripts/run-with-env.mjs --filter @morning-brief/server dev",
+    "dev:web": "node scripts/run-with-env.mjs --filter @morning-brief/web dev",
+    "daily": "node scripts/run-with-env.mjs --filter @morning-brief/worker daily",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck"
+  }
+}

@@ -1,0 +1,286 @@
+---
+import "@fontsource-variable/geist";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = "为 AI 产品经理准备的个人每日情报。"
+} = Astro.props;
+
+const pathname = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f2f0e9" />
+    <script is:inline>
+      (() => {
+        const key = "morning-brief-theme";
+        const saved = localStorage.getItem(key);
+        const choice = saved === "light" || saved === "dark" ? saved : "system";
+        if (choice === "system") delete document.documentElement.dataset.theme;
+        else document.documentElement.dataset.theme = choice;
+        document.documentElement.style.colorScheme = choice === "system" ? "light dark" : choice;
+      })();
+    </script>
+    <title>{title}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到正文</a>
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="Morning Brief 首页">
+        <span>Morning Brief</span>
+      </a>
+      <nav aria-label="主导航">
+        <a href="/" aria-current={pathname === "/" ? "page" : undefined}>今日</a>
+        <a href="/archive/" aria-current={pathname.startsWith("/archive") ? "page" : undefined}>往期</a>
+      </nav>
+      <div class="header-tools">
+        <span class="edition">AI PRODUCT INTELLIGENCE</span>
+        <div class="theme-menu" data-theme-menu>
+          <button class="theme-menu-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
+            <span data-theme-label>跟随系统</span>
+            <span class="theme-menu-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="theme-menu-popover" role="menu" aria-label="页面主题" hidden>
+            <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false">
+              <span>浅色</span>
+            </button>
+            <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false">
+              <span>深色</span>
+            </button>
+            <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="false">
+              <span>跟随系统</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main id="main"><slot /></main>
+    <footer>
+      <span>FOLLOW BUILDERS, TRACE SIGNALS.</span>
+      <span>每日一份 · 追踪热点</span>
+    </footer>
+    <script>
+      import { gsap } from "gsap";
+
+      type ThemeChoice = "light" | "dark" | "system";
+      const themeKey = "morning-brief-theme";
+      const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+      const themeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-theme-choice]"));
+      const themeMenu = document.querySelector<HTMLElement>("[data-theme-menu]");
+      const themeTrigger = themeMenu?.querySelector<HTMLButtonElement>(".theme-menu-trigger");
+      const themePopover = themeMenu?.querySelector<HTMLElement>(".theme-menu-popover");
+      const themeLabel = themeMenu?.querySelector<HTMLElement>("[data-theme-label]");
+      const themeNames: Record<ThemeChoice, string> = { light: "浅色", dark: "深色", system: "跟随系统" };
+
+      const getThemeChoice = (): ThemeChoice => {
+        const saved = localStorage.getItem(themeKey);
+        return saved === "light" || saved === "dark" ? saved : "system";
+      };
+
+      const applyTheme = (choice: ThemeChoice) => {
+        const root = document.documentElement;
+        if (choice === "system") delete root.dataset.theme;
+        else root.dataset.theme = choice;
+        root.style.colorScheme = choice === "system" ? "light dark" : choice;
+
+        const resolvedTheme = choice === "system" ? (themeMedia.matches ? "dark" : "light") : choice;
+        document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+          ?.setAttribute("content", resolvedTheme === "dark" ? "#171713" : "#f2f0e9");
+        themeButtons.forEach((button) => {
+          const selected = button.dataset.themeChoice === choice;
+          button.setAttribute("aria-checked", String(selected));
+        });
+        if (themeLabel) themeLabel.textContent = themeNames[choice];
+      };
+
+      const setThemeMenuOpen = (open: boolean) => {
+        if (!themeTrigger || !themePopover) return;
+        themeTrigger.setAttribute("aria-expanded", String(open));
+        themePopover.hidden = !open;
+      };
+
+      themeTrigger?.addEventListener("click", () => {
+        const open = themeTrigger.getAttribute("aria-expanded") !== "true";
+        setThemeMenuOpen(open);
+        if (open) themeButtons.find((button) => button.getAttribute("aria-checked") === "true")?.focus();
+      });
+
+      themeButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const choice = button.dataset.themeChoice as ThemeChoice;
+          if (choice === "system") localStorage.removeItem(themeKey);
+          else localStorage.setItem(themeKey, choice);
+          applyTheme(choice);
+          setThemeMenuOpen(false);
+          themeTrigger?.focus();
+        });
+      });
+      document.addEventListener("pointerdown", (event) => {
+        if (themeMenu && !themeMenu.contains(event.target as Node)) setThemeMenuOpen(false);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || themePopover?.hidden) return;
+        setThemeMenuOpen(false);
+        themeTrigger?.focus();
+      });
+      themePopover?.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        event.preventDefault();
+        const currentIndex = themeButtons.indexOf(document.activeElement as HTMLButtonElement);
+        const direction = event.key === "ArrowDown" ? 1 : -1;
+        const nextIndex = (currentIndex + direction + themeButtons.length) % themeButtons.length;
+        themeButtons[nextIndex]?.focus();
+      });
+      themeMedia.addEventListener("change", () => {
+        if (getThemeChoice() === "system") applyTheme("system");
+      });
+      applyTheme(getThemeChoice());
+
+      const motion = gsap.matchMedia();
+      const tweens: gsap.core.Tween[] = [];
+      let observer: IntersectionObserver | undefined;
+
+      motion.add("(prefers-reduced-motion: no-preference)", () => {
+        const entered = Array.from(document.querySelectorAll<HTMLElement>("[data-enter]"));
+        if (entered.length) {
+          tweens.push(gsap.fromTo(entered, { opacity: 0.55, y: 18 }, {
+            opacity: 1,
+            y: 0,
+            duration: 0.72,
+            stagger: 0.08,
+            ease: "power3.out",
+            clearProps: "transform,opacity"
+          }));
+        }
+
+        observer = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            observer?.unobserve(entry.target);
+            tweens.push(gsap.fromTo(entry.target, { opacity: 0.55, y: 20 }, {
+              opacity: 1,
+              y: 0,
+              duration: 0.62,
+              ease: "power2.out",
+              clearProps: "transform,opacity"
+            }));
+          }
+        }, { rootMargin: "0px 0px -9%", threshold: 0.08 });
+
+        document.querySelectorAll("[data-reveal]").forEach((element) => observer?.observe(element));
+        return () => observer?.disconnect();
+      });
+
+      motion.add("(prefers-reduced-motion: reduce)", () => {
+        gsap.set("[data-enter], [data-reveal]", { clearProps: "all" });
+      });
+
+      window.addEventListener("pagehide", () => {
+        observer?.disconnect();
+        tweens.forEach((tween) => tween.kill());
+        motion.revert();
+      }, { once: true });
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @font-face {
+    font-family: "OPPO Sans Local";
+    src: local("OPPO Sans 4.0"), local("OPPO Sans"), local("OPPOSans");
+    font-display: swap;
+  }
+
+  :root {
+    color-scheme: light dark;
+    --paper: #f2f0e9;
+    --surface: #fbfaf6;
+    --ink: #161612;
+    --ink-2: #56564f;
+    --line: #cbc8bd;
+    --line-strong: #8f8c82;
+    --signal: #ef4f2f;
+    --signal-soft: #ffe0d6;
+    --success: #28734b;
+    --warning: #9a6812;
+    --danger: #a93d36;
+    --font: "Geist Variable", "OPPO Sans Local", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --mono: "Geist Mono", ui-monospace, monospace;
+    font-family: var(--font);
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--paper); scroll-behavior: smooth; }
+  body { margin: 0; min-width: 320px; color: var(--ink); background: var(--paper); font: 400 16px/1.65 var(--font); text-rendering: optimizeLegibility; }
+  a { color: inherit; text-decoration: none; }
+  button, input, textarea, select { font: inherit; }
+  a:focus-visible, button:focus-visible { outline: 3px solid color-mix(in srgb, var(--signal) 45%, transparent); outline-offset: 3px; }
+  .skip-link { position: fixed; top: 10px; left: 10px; z-index: 30; transform: translateY(-160%); background: var(--ink); color: var(--paper); padding: 8px 12px; }
+  .skip-link:focus { transform: none; }
+  .site-header { min-height: 74px; max-width: 1280px; margin: auto; padding: 0 30px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid var(--line); }
+  .wordmark { width: max-content; font-size: 16px; font-weight: 690; letter-spacing: -.025em; }
+  nav { display: flex; gap: 6px; }
+  nav a { position: relative; padding: 9px 13px; color: var(--ink-2); font-size: 13px; }
+  nav a::after { content: ""; position: absolute; right: 13px; bottom: 4px; left: 13px; height: 2px; background: var(--signal); transform: scaleX(0); transform-origin: left; transition: transform 180ms ease; }
+  nav a:hover, nav a[aria-current="page"] { color: var(--ink); }
+  nav a:hover::after, nav a[aria-current="page"]::after { transform: scaleX(1); }
+  .header-tools { justify-self: end; display: flex; align-items: center; gap: 16px; }
+  .edition { justify-self: end; color: var(--ink-2); font-size: 9px; letter-spacing: .16em; }
+  .theme-menu { position: relative; }
+  .theme-menu-trigger { min-width: 94px; min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); padding: 6px 9px 6px 11px; color: var(--ink); background: transparent; font-size: 11px; cursor: pointer; }
+  .theme-menu-trigger:hover, .theme-menu-trigger[aria-expanded="true"] { background: var(--surface); }
+  .theme-menu-trigger:active { transform: translateY(1px); }
+  .theme-menu-chevron { width: 6px; height: 6px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform 160ms ease; }
+  .theme-menu-trigger[aria-expanded="true"] .theme-menu-chevron { transform: translateY(2px) rotate(225deg); }
+  .theme-menu-popover { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: 142px; border: 1px solid var(--line-strong); padding: 5px; background: var(--surface); box-shadow: 0 16px 38px color-mix(in srgb, var(--ink) 14%, transparent); }
+  .theme-menu-popover[hidden] { display: none; }
+  .theme-menu-popover button { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; border: 0; padding: 9px 10px; color: var(--ink); background: transparent; text-align: left; cursor: pointer; }
+  .theme-menu-popover button:hover, .theme-menu-popover button:focus-visible { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+  .theme-menu-popover button[aria-checked="true"]::after { content: "✓"; color: var(--signal); font-size: 13px; font-weight: 700; }
+  .theme-menu-popover button span { font-size: 12px; font-weight: 620; }
+  footer { max-width: 1280px; margin: 80px auto 0; padding: 28px 30px 36px; display: flex; justify-content: space-between; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 10px; letter-spacing: .12em; }
+  .shell { max-width: 1160px; margin: auto; padding: 54px 30px 20px; }
+  .section-label { color: var(--signal); font: 680 10px/1.2 var(--font); letter-spacing: .14em; text-transform: uppercase; }
+  .display { font-weight: 680; letter-spacing: -.045em; }
+  .muted { color: var(--ink-2); }
+  .status { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 11px; white-space: nowrap; }
+  .status::before { content: ""; width: 8px; height: 8px; border: 2px solid currentColor; border-radius: 50%; }
+  .status.complete { color: var(--success); }
+  .status.partial { color: var(--warning); }
+  .status.fallback { color: var(--danger); }
+  .empty { min-height: 58vh; display: grid; place-items: center; }
+  .empty-inner { max-width: 620px; text-align: center; }
+  .empty-signal { width: 96px; height: 96px; margin: 0 auto 26px; border: 1px solid var(--line); display: grid; place-items: center; color: var(--signal); font: 650 20px/1 var(--mono); }
+  .empty-signal::after { content: "NO SIGNAL"; font-size: 8px; letter-spacing: .12em; }
+  .text-link { color: var(--signal); font-size: 13px; font-weight: 650; text-decoration: underline; text-underline-offset: 4px; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --paper: #171713; --surface: #20201b; --ink: #f1efe7; --ink-2: #aaa79d; --line: #3a3932; --line-strong: #77736a; --signal: #ff6748; --signal-soft: #4b261f; }
+  }
+  :root[data-theme="light"] { color-scheme: light; --paper: #f2f0e9; --surface: #fbfaf6; --ink: #161612; --ink-2: #56564f; --line: #cbc8bd; --line-strong: #8f8c82; --signal: #ef4f2f; --signal-soft: #ffe0d6; }
+  :root[data-theme="dark"] { color-scheme: dark; --paper: #171713; --surface: #20201b; --ink: #f1efe7; --ink-2: #aaa79d; --line: #3a3932; --line-strong: #77736a; --signal: #ff6748; --signal-soft: #4b261f; }
+  @media (max-width: 720px) {
+    .site-header { min-height: 96px; grid-template-columns: 1fr auto; padding: 12px 18px; row-gap: 6px; }
+    .site-header nav { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
+    .edition { display: none; }
+    .header-tools { gap: 0; }
+    .theme-menu-trigger { min-height: 30px; }
+    .shell { padding: 38px 18px 12px; }
+    footer { margin-top: 56px; padding: 24px 18px; flex-direction: column; gap: 7px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  }
+  @media (prefers-contrast: more) { :root { --line: var(--line-strong); } }
+</style>

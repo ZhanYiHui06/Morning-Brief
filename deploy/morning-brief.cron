@@ -1,0 +1,2 @@
+CRON_TZ=Asia/Shanghai
+50 6 * * * root /usr/bin/docker exec morning-brief pnpm --filter @morning-brief/worker production-daily --requested-by schedule >> /var/log/morning-brief-daily.log 2>&1

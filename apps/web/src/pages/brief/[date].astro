@@ -1,0 +1,18 @@
+---
+import type { GetStaticPaths } from "astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import BriefView from "@/components/BriefView.astro";
+import { loadBriefs } from "@/lib/briefs";
+
+export const getStaticPaths = (() =>
+  loadBriefs().map((brief) => ({
+    params: { date: brief.date },
+    props: { brief }
+  }))) satisfies GetStaticPaths;
+
+const { brief } = Astro.props;
+---
+
+<BaseLayout title={`${brief.title}｜晨间信号`} description={brief.deck}>
+  <div class="shell"><BriefView brief={brief} /></div>
+</BaseLayout>

@@ -1,0 +1,123 @@
+---
+import type { GetStaticPaths } from "astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { formatDate, loadBriefs, type RawSourceItem } from "@/lib/briefs";
+
+export const getStaticPaths = (() =>
+  loadBriefs().map((brief) => ({
+    params: { date: brief.date },
+    props: { brief }
+  }))) satisfies GetStaticPaths;
+
+const { brief } = Astro.props;
+const sourceOrder: RawSourceItem["sourceType"][] = ["zara-x", "zara-podcast", "zara-blog", "github-trending"];
+const sourceMeta: Record<RawSourceItem["sourceType"], { eyebrow: string; title: string; note: string }> = {
+  "zara-x": { eyebrow: "FOLLOW BUILDERS", title: "Builder 动态", note: "Zara X Feed" },
+  "zara-podcast": { eyebrow: "LONG FORM", title: "播客", note: "节目描述与转录" },
+  "zara-blog": { eyebrow: "ORIGINAL WRITING", title: "博客", note: "官方博客与工程文章" },
+  "github-trending": { eyebrow: "OPEN SOURCE", title: "GitHub Trending", note: "当日全球趋势仓库" }
+};
+const groups = sourceOrder.map((type) => ({
+  type,
+  ...sourceMeta[type],
+  items: brief.rawItems.filter((item) => item.sourceType === type)
+})).filter((group) => group.items.length > 0);
+const published = (value?: string) => value
+  ? new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" }).format(new Date(value))
+  : "时间未知";
+---
+
+<BaseLayout title={`${brief.date} 全部原文｜Morning Brief`} description={`${brief.date} 未经筛选和总结的全部采集来源。`}>
+  <div class="source-shell">
+    <a class="back-link" href={`/brief/${brief.date}/`}>← 返回当日日报</a>
+
+    <header class="source-hero" data-enter>
+      <div class="source-index"><span>RAW</span><strong>{String(brief.rawItems.length).padStart(2, "0")}</strong></div>
+      <div>
+        <span class="section-label">SOURCE LEDGER · {brief.date}</span>
+        <h1 class="display">今日所有原文</h1>
+        <p>{formatDate(brief.date)}采集到的全部信息。这里只做来源分类，不做过滤、排序判断或 AI 总结。</p>
+      </div>
+    </header>
+
+    <nav class="source-jump" aria-label="来源分类">
+      {groups.map((group) => <a href={`#${group.type}`}><span>{group.title}</span><b>{String(group.items.length).padStart(2, "0")}</b></a>)}
+    </nav>
+
+    {groups.length ? groups.map((group) => (
+      <section class="source-group" id={group.type} data-reveal>
+        <header>
+          <span><small>{group.eyebrow}</small><h2 class="display">{group.title}</h2><p>{group.note}</p></span>
+          <strong>{String(group.items.length).padStart(2, "0")}</strong>
+        </header>
+        <div class="raw-list">
+          {group.items.map((item, index) => (
+            <article class="raw-entry">
+              <span class="raw-number">{String(index + 1).padStart(2, "0")}</span>
+              <div class="raw-body">
+                <header><span>{item.author || item.sourceName}</span><time>{published(item.publishedAt || item.collectedAt)}</time></header>
+                {item.title && <h3>{item.title}</h3>}
+                <p>{item.content || "该来源没有提供正文。"}</p>
+                <a href={item.url} target="_blank" rel="noreferrer">查看来源 ↗</a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    )) : (
+      <section class="source-empty"><b>这份旧日报没有保存原始采集快照。</b><p>下一次运行新流水线后，全部原文会显示在这里。</p></section>
+    )}
+
+    <a class="return-brief" href={`/brief/${brief.date}/`}><span><small>BACK TO EDITION</small><strong>返回当日日报</strong></span><b>返回 →</b></a>
+  </div>
+</BaseLayout>
+
+<style>
+  .source-shell { max-width: 1160px; margin: auto; padding: 42px 30px 20px; }
+  .back-link { display: inline-block; margin-bottom: 48px; color: var(--ink-2); font-size: 12px; text-decoration: underline; text-underline-offset: 4px; }
+  .source-hero { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 58px; padding-bottom: 66px; }
+  .source-index { min-height: 190px; display: flex; flex-direction: column; border-top: 5px solid var(--signal); padding-top: 12px; }
+  .source-index span { color: var(--ink-2); font: 650 10px/1 var(--mono); letter-spacing: .15em; }
+  .source-index strong { margin-top: auto; color: var(--signal); font: 680 54px/1 var(--mono); }
+  .source-hero h1 { margin: 26px 0 18px; font-size: clamp(48px, 7.2vw, 92px); line-height: .98; }
+  .source-hero p { max-width: 700px; margin: 0; color: var(--ink-2); font-size: 16px; line-height: 1.8; }
+  .source-jump { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+  .source-jump a { min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; border-right: 1px solid var(--line); }
+  .source-jump a:last-child { border-right: 0; }
+  .source-jump a:hover { background: var(--surface); }
+  .source-jump span { font-size: 12px; font-weight: 650; }
+  .source-jump b { color: var(--signal); font: 680 14px/1 var(--mono); }
+  .source-group { scroll-margin-top: 18px; padding: 74px 0 18px; }
+  .source-group > header { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px; padding-bottom: 24px; border-bottom: 2px solid var(--ink); }
+  .source-group > header small { color: var(--signal); font-size: 9px; font-weight: 680; letter-spacing: .14em; }
+  .source-group > header h2 { margin: 7px 0 2px; font-size: clamp(32px, 4vw, 48px); }
+  .source-group > header p { margin: 0; color: var(--ink-2); font-size: 11px; }
+  .source-group > header > strong { color: var(--signal); font: 680 28px/1 var(--mono); }
+  .raw-entry { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 24px; padding: 28px 0 34px; border-bottom: 1px solid var(--line); }
+  .raw-number { color: var(--signal); font: 650 12px/1.4 var(--mono); }
+  .raw-body > header { display: flex; justify-content: space-between; gap: 20px; color: var(--ink-2); font-size: 10px; letter-spacing: .06em; }
+  .raw-body > header span { color: var(--ink); font-weight: 680; }
+  .raw-body h3 { margin: 10px 0 12px; font-size: 20px; line-height: 1.35; }
+  .raw-body p { margin: 9px 0 0; color: var(--ink); font-size: 14px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .raw-body a { display: inline-block; margin-top: 17px; color: var(--signal); font-size: 11px; font-weight: 680; text-decoration: underline; text-underline-offset: 4px; }
+  .source-empty { margin: 60px 0; padding: 28px; border: 1px solid var(--line); }
+  .source-empty p { margin-bottom: 0; color: var(--ink-2); }
+  .return-brief { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 66px; padding: 30px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); }
+  .return-brief small { display: block; color: var(--ink-2); font-size: 9px; letter-spacing: .13em; }
+  .return-brief strong { display: block; margin-top: 5px; font-size: 18px; }
+  .return-brief > b { color: var(--signal); font-size: 12px; }
+  @media (max-width: 760px) {
+    .source-shell { padding: 30px 18px 12px; }
+    .back-link { margin-bottom: 32px; }
+    .source-hero { grid-template-columns: 1fr; gap: 26px; padding-bottom: 48px; }
+    .source-index { min-height: auto; display: grid; grid-template-columns: 1fr auto; border-top-width: 3px; }
+    .source-index strong { margin-top: 10px; }
+    .source-jump { grid-template-columns: 1fr 1fr; }
+    .source-jump a:nth-child(2n) { border-right: 0; }
+    .source-jump a:nth-child(n + 3) { border-top: 1px solid var(--line); }
+    .source-group { padding-top: 54px; }
+    .raw-entry { grid-template-columns: 38px minmax(0, 1fr); gap: 10px; }
+    .raw-body > header { flex-direction: column; gap: 3px; }
+    .raw-body h3 { font-size: 18px; }
+  }
+</style>

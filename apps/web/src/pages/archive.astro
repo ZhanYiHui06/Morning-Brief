@@ -1,0 +1,51 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { formatDate, loadBriefs } from "@/lib/briefs";
+const briefs = loadBriefs();
+---
+
+<BaseLayout title="往期晨报｜晨间信号">
+  <div class="shell archive">
+    <header class="archive-head">
+      <div data-enter><span class="section-label">ARCHIVE / {String(briefs.length).padStart(3, "0")}</span><h1 class="display">往期信号</h1></div>
+    </header>
+    {briefs.length ? (
+      <div class="archive-list" data-reveal>
+        {briefs.map((brief, index) => (
+          <a href={`/brief/${brief.date}/`}>
+            <span class="index">{String(briefs.length - index).padStart(3, "0")}</span>
+            <time datetime={brief.date}>{formatDate(brief.date)}</time>
+            <span class="entry-copy"><small>{brief.status === "complete" ? "内容完整" : brief.status === "partial" ? "部分生成" : "降级摘要"}</small><strong>{brief.title}</strong><p>{brief.deck || `${brief.highlights.length} 条重点 · ${brief.githubTrending.length} 个趋势项目`}</p></span>
+            <b>打开 ↗</b>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <section class="empty"><div class="empty-inner"><div class="empty-signal"></div><h2 class="display">档案尚未开始</h2><p class="muted">生成并发布首份晨报后，这里会按日期归档。</p><a class="text-link" href="/">返回今日</a></div></section>
+    )}
+  </div>
+</BaseLayout>
+
+<style>
+  .archive-head { display: grid; grid-template-columns: 1.35fr .65fr; gap: 70px; align-items: end; padding: 34px 0 68px; }
+  .archive h1 { margin: 15px 0 0; font-size: clamp(54px, 9vw, 112px); line-height: .9; }
+  .archive-head > p { margin: 0; padding-bottom: 7px; color: var(--ink-2); line-height: 1.8; }
+  .archive-list { border-top: 2px solid var(--ink); }
+  .archive-list a { display: grid; grid-template-columns: 60px 150px minmax(0, 1fr) auto; gap: 24px; align-items: start; padding: 28px 8px 30px 0; border-bottom: 1px solid var(--line); transition: padding 160ms ease, background-color 160ms ease; }
+  .archive-list a:hover { padding-left: 14px; background: var(--surface); }
+  .index { color: var(--signal); font: 650 11px/1.5 var(--mono); }
+  time { font-size: 14px; font-weight: 620; }
+  .entry-copy small { color: var(--ink-2); font-size: 10px; letter-spacing: .08em; }
+  .entry-copy strong { display: block; margin: 5px 0; font-size: 21px; letter-spacing: -.025em; }
+  .entry-copy p { margin: 0; color: var(--ink-2); font-size: 13px; }
+  .archive-list b { color: var(--signal); font-size: 12px; }
+  @media (max-width: 720px) {
+    .archive-head { grid-template-columns: 1fr; gap: 20px; padding-bottom: 48px; }
+    .archive h1 { font-size: 64px; }
+    .archive-list a { grid-template-columns: 38px 1fr; gap: 12px; }
+    .archive-list time, .entry-copy { grid-column: 2; }
+    .archive-list time { grid-row: 1; }
+    .entry-copy { grid-row: 2; }
+    .archive-list b { display: none; }
+  }
+</style>

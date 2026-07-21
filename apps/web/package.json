@@ -1,0 +1,20 @@
+{
+  "name": "@morning-brief/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "astro": "^5.12.0",
+    "gsap": "^3.13.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.8.3"
+  }
+}

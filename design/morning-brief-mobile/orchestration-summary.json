@@ -1,0 +1,474 @@
+﻿{
+    "skillProvenance":  {
+                            "recorded_at":  "2026-07-21T13:24:08.6383950+08:00",
+                            "name":  "solo-design",
+                            "version":  "2026.07.06.8",
+                            "runtime_skill_dir":  "c:\\Users\\Eric\\.trae-cn\\builtin\\design\\default\\skills\\solo-design",
+                            "version_source":  "skill-version.json"
+                        },
+    "project":  {
+                    "replicationMode":  null,
+                    "dashboardMode":  true,
+                    "sharedProjectShellContract":  {
+                                                       "mobileNavigation":  {
+                                                                                "position":  "flow-bottom",
+                                                                                "activeState":  "primary icon+label color only; geometry stays identical",
+                                                                                "heightPx":  56,
+                                                                                "type":  "bottom-tab",
+                                                                                "applies":  true,
+                                                                                "items":  [
+                                                                                              {
+                                                                                                  "label":  "晨报",
+                                                                                                  "icon":  "newspaper",
+                                                                                                  "key":  "home"
+                                                                                              },
+                                                                                              {
+                                                                                                  "label":  "归档",
+                                                                                                  "icon":  "archive",
+                                                                                                  "key":  "archive"
+                                                                                              },
+                                                                                              {
+                                                                                                  "label":  "后台",
+                                                                                                  "icon":  "layout-dashboard",
+                                                                                                  "key":  "admin"
+                                                                                              }
+                                                                                          ],
+                                                                                "structure":  {
+                                                                                                  "canonicalHtmlByKey":  {
+                                                                                                                             "admin":  "\u003cnav data-mobile-nav=\"global\" class=\"w-full border-t border-[var(--border-2)] bg-[var(--color-bg-1)] h-[56px]\"\u003e\u003cdiv class=\"w-full max-w-md mx-auto grid grid-cols-3 h-full\"\u003e\u003ca data-nav-key=\"home\" data-dom-id=\"tab-home\" class=\"min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--color-text-3)]\"\u003e\u003ci data-lucide=\"newspaper\" class=\"w-5 h-5 shrink-0\"\u003e\u003c/i\u003e\u003cspan class=\"text-[11px] leading-none whitespace-nowrap max-w-full truncate\"\u003e晨报\u003c/span\u003e\u003c/a\u003e\u003ca data-nav-key=\"archive\" data-dom-id=\"tab-archive\" class=\"min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--color-text-3)]\"\u003e\u003ci data-lucide=\"archive\" class=\"w-5 h-5 shrink-0\"\u003e\u003c/i\u003e\u003cspan class=\"text-[11px] leading-none whitespace-nowrap max-w-full truncate\"\u003e归档\u003c/span\u003e\u003c/a\u003e\u003ca data-nav-key=\"admin\" data-active=\"true\" class=\"min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--primary-6)] font-medium\"\u003e\u003ci data-lucide=\"layout-dashboard\" class=\"w-5 h-5 shrink-0\"\u003e\u003c/i\u003e\u003cspan class=\"text-[11px] leading-none whitespace-nowrap max-w-full truncate\"\u003e后台\u003c/span\u003e\u003c/a\u003e\u003c/div\u003e\u003c/nav\u003e",
+                                                                                                                             "archive":  "\u003cnav data-mobile-nav=\"global\" class=\"w-full border-t border-[var(--border-2)] bg-[var(--color-bg-1)] h-[56px]\"\u003e\u003cdiv class=\"w-full max-w-md mx-auto grid grid-cols-3 h-full\"\u003e\u003ca data-nav-key=\"home\" data-dom-id=\"tab-home\" class=\"min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--color-text-3)]\"\u003e\u003ci data-lucide=\"newspaper\" class=\"w-5 h-5 shrink-0\"\u003e\u003c/i\u003e\u003cspan class=\"text-[11px] leading-none whitespace-nowrap max-w-full truncate\"\u003e晨报\u003c/span\u003e\u003c/a\u003e\u003ca data-nav-key=\"archive\" data-active=\"true\" class=\"min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--primary-6)] font-medium\"\u003e\u003ci data-lucide=\"archive\" class=\"w-5 h-5 shrink-0\"\u003e\u003c/i\u003e\u003cspan class=\"text-[11px] leading-none whitespace-nowrap max-w-full truncate\"\u003e归档\u003c/span\u003e\u003c/a\u003e\u003ca data-nav-key=\"admin\" data-dom-id=\"tab-admin\" class=\"min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--color-text-3)]\"\u003e\u003ci data-lucide=\"layout-dashboard\" class=\"w-5 h-5 shrink-0\"\u003e\u003c/i\u003e\u003cspan class=\"text-[11px] leading-none whitespace-nowrap max-w-full truncate\"\u003e后台\u003c/span\u003e\u003c/a\u003e\u003c/div\u003e\u003c/nav\u003e",
+                                                                                                                             "home":  "\u003cnav data-mobile-nav=\"global\" class=\"w-full border-t border-[var(--border-2)] bg-[var(--color-bg-1)] h-[56px]\"\u003e\u003cdiv class=\"w-full max-w-md mx-auto grid grid-cols-3 h-full\"\u003e\u003ca data-nav-key=\"home\" data-active=\"true\" class=\"min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--primary-6)] font-medium\"\u003e\u003ci data-lucide=\"newspaper\" class=\"w-5 h-5 shrink-0\"\u003e\u003c/i\u003e\u003cspan class=\"text-[11px] leading-none whitespace-nowrap max-w-full truncate\"\u003e晨报\u003c/span\u003e\u003c/a\u003e\u003ca data-nav-key=\"archive\" data-dom-id=\"tab-archive\" class=\"min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--color-text-3)]\"\u003e\u003ci data-lucide=\"archive\" class=\"w-5 h-5 shrink-0\"\u003e\u003c/i\u003e\u003cspan class=\"text-[11px] leading-none whitespace-nowrap max-w-full truncate\"\u003e归档\u003c/span\u003e\u003c/a\u003e\u003ca data-nav-key=\"admin\" data-dom-id=\"tab-admin\" class=\"min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--color-text-3)]\"\u003e\u003ci data-lucide=\"layout-dashboard\" class=\"w-5 h-5 shrink-0\"\u003e\u003c/i\u003e\u003cspan class=\"text-[11px] leading-none whitespace-nowrap max-w-full truncate\"\u003e后台\u003c/span\u003e\u003c/a\u003e\u003c/div\u003e\u003c/nav\u003e"
+                                                                                                                         },
+                                                                                                  "activeRule":  "only color/font-weight/data-active may change; no class changes that affect layout",
+                                                                                                  "markerAttr":  "data-mobile-nav=\"global\"",
+                                                                                                  "innerClass":  "w-full max-w-md mx-auto grid grid-cols-3 h-full",
+                                                                                                  "iconClass":  "w-5 h-5 shrink-0",
+                                                                                                  "navTag":  "nav",
+                                                                                                  "labelClass":  "text-[11px] leading-none whitespace-nowrap max-w-full truncate",
+                                                                                                  "navClass":  "w-full border-t border-[var(--border-2)] bg-[var(--color-bg-1)] h-[56px]",
+                                                                                                  "itemTag":  "a",
+                                                                                                  "itemClass":  "min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 h-full text-[var(--color-text-3)]"
+                                                                                              }
+                                                                            }
+                                                   },
+                    "deviceType":  "mobile",
+                    "cssPreflightEvidence":  {
+                                                 "retryCount":  0,
+                                                 "blockingReason":  null,
+                                                 "checks":  {
+                                                                "semanticTokenFallback":  "present",
+                                                                "themeInline":  "present",
+                                                                "htmlClass":  "present",
+                                                                "tailwindCdn":  "present",
+                                                                "themeVars":  "present"
+                                                            },
+                                                 "brandPrefix":  "yuanli",
+                                                 "applies":  true,
+                                                 "status":  "passed"
+                                             },
+                    "name":  "Morning Brief 移动端",
+                    "sourceUrl":  null,
+                    "designDials":  {
+                                        "radius":  "8px",
+                                        "surface":  "#ffffff",
+                                        "primary":  "#1664ff",
+                                        "canvas":  "#f6f8fa",
+                                        "density":  "medium"
+                                    },
+                    "language":  "zh-CN",
+                    "intentProfile":  {
+                                          "graphicStrategy":  null,
+                                          "routingReason":  "源力 + design.md 移动阅读与紧急后台",
+                                          "caseFamily":  "library_bound",
+                                          "sourceType":  null
+                                      },
+                    "path":  "c:\\Users\\Eric\\Documents\\Server\\Morning-Brief\\design\\morning-brief-mobile",
+                    "operation":  "create",
+                    "designRead":  {
+                                       "audience":  "移动阅读用户 + 紧急操作管理员",
+                                       "tone":  "清晰可读、触控友好、状态可见",
+                                       "product":  "Morning Brief 移动阅读与紧急运维"
+                                   }
+                },
+    "designSource":  {
+                         "designDecisionSummary":  "移动端继承源力：阅读端单栏卡片流；后台紧急操作优先 KPI 与阶段状态；底栏三入口：晨报/归档/后台。",
+                         "actualTokenNameReference":  [
+                                                          "--primary-6",
+                                                          "--primary-1",
+                                                          "--primary-2",
+                                                          "--color-bg-1",
+                                                          "--color-bg-2",
+                                                          "--color-bg-4",
+                                                          "--color-bg-5",
+                                                          "--color-text-1",
+                                                          "--color-text-2",
+                                                          "--color-text-3",
+                                                          "--border-2",
+                                                          "--border-1",
+                                                          "--success-5",
+                                                          "--success-1",
+                                                          "--warning-6",
+                                                          "--warning-1",
+                                                          "--danger-5",
+                                                          "--danger-1",
+                                                          "--radius-md",
+                                                          "--radius-sm",
+                                                          "--radius-lg",
+                                                          "--space-2",
+                                                          "--space-3",
+                                                          "--space-4",
+                                                          "--space-6",
+                                                          "--space-8",
+                                                          "--shadow-1",
+                                                          "--shadow-2",
+                                                          "--font-size-sm",
+                                                          "--font-size-lg",
+                                                          "--font-size-xl",
+                                                          "--font-size-title"
+                                                      ],
+                         "allowedComponents":  [
+
+                                               ],
+                         "cssPath":  "c:\\Users\\Eric\\Documents\\Server\\Morning-Brief\\design\\morning-brief-mobile\\colors_and_type.css",
+                         "uiKitSummary":  null,
+                         "componentIndexSummary":  [
+
+                                                   ],
+                         "forbiddenInventedComponents":  [
+
+                                                         ],
+                         "brandPrefix":  "yuanli",
+                         "operatingMode":  "library-bound",
+                         "libraryIdentity":  {
+                                                 "id":  "dl_builtin_volcengine",
+                                                 "name":  "源力",
+                                                 "versionSource":  "metadata.json",
+                                                 "path":  "c:\\Users\\Eric\\.trae-cn\\design_libraries\\dl_builtin_volcengine",
+                                                 "scope":  "built-in-global",
+                                                 "version":  null
+                                             }
+                     },
+    "pages":  [
+                  {
+                      "deviceType":  "mobile",
+                      "compositionPattern":  "editorial-intel-dashboard",
+                      "imagePlan":  [
+
+                                    ],
+                      "pageIndex":  1,
+                      "viewportMode":  "document-scroll",
+                      "continuityAnchors":  [
+                                                "源力蓝 #1664ff 主操作色 + 冷灰底 #f6f8fa",
+                                                "卡片白底、1px #dde2e9 边框、radius 8px、轻阴影 shadow-1",
+                                                "阅读端居中 max-w 880/960；后台左侧 240 导航 + 顶栏 56",
+                                                "状态徽章同时显示文字与色标：Complete/Partial/Fallback/Empty/Stale"
+                                            ],
+                      "componentPlan":  [
+
+                                        ],
+                      "visualNorthStar":  "移动完整晨报单栏可读",
+                      "keyFeatures":  [
+                                          "顶栏日期",
+                                          "状态徽章",
+                                          "三件大事",
+                                          "Builders",
+                                          "GitHub",
+                                          "行动",
+                                          "底栏"
+                                      ],
+                      "chartsRequired":  false,
+                      "dataDomIds":  [
+                                         "tab-archive",
+                                         "tab-admin"
+                                     ],
+                      "pageType":  "information-dense",
+                      "title":  "最新晨报",
+                      "stateRole":  "base",
+                      "htmlSrc":  "pages/home.html",
+                      "nodeId":  "page-home",
+                      "activeMobileNavKey":  "home"
+                  },
+                  {
+                      "deviceType":  "mobile",
+                      "compositionPattern":  "editorial-intel-dashboard",
+                      "imagePlan":  [
+
+                                    ],
+                      "pageIndex":  2,
+                      "viewportMode":  "document-scroll",
+                      "continuityAnchors":  [
+                                                "源力蓝 #1664ff 主操作色 + 冷灰底 #f6f8fa",
+                                                "卡片白底、1px #dde2e9 边框、radius 8px、轻阴影 shadow-1",
+                                                "阅读端居中 max-w 880/960；后台左侧 240 导航 + 顶栏 56",
+                                                "状态徽章同时显示文字与色标：Complete/Partial/Fallback/Empty/Stale"
+                                            ],
+                      "componentPlan":  [
+
+                                        ],
+                      "visualNorthStar":  "移动空状态",
+                      "keyFeatures":  [
+                                          "空状态",
+                                          "去历史"
+                                      ],
+                      "chartsRequired":  false,
+                      "dataDomIds":  [
+                                         "tab-archive",
+                                         "tab-admin",
+                                         "goto-archive"
+                                     ],
+                      "pageType":  "task-driven",
+                      "title":  "最新晨报 · 空状态",
+                      "stateRole":  "base",
+                      "htmlSrc":  "pages/home-empty.html",
+                      "nodeId":  "page-home-empty",
+                      "activeMobileNavKey":  "home"
+                  },
+                  {
+                      "deviceType":  "mobile",
+                      "compositionPattern":  "editorial-intel-dashboard",
+                      "imagePlan":  [
+
+                                    ],
+                      "pageIndex":  3,
+                      "viewportMode":  "document-scroll",
+                      "continuityAnchors":  [
+                                                "源力蓝 #1664ff 主操作色 + 冷灰底 #f6f8fa",
+                                                "卡片白底、1px #dde2e9 边框、radius 8px、轻阴影 shadow-1",
+                                                "阅读端居中 max-w 880/960；后台左侧 240 导航 + 顶栏 56",
+                                                "状态徽章同时显示文字与色标：Complete/Partial/Fallback/Empty/Stale"
+                                            ],
+                      "componentPlan":  [
+
+                                        ],
+                      "visualNorthStar":  "移动归档列表",
+                      "keyFeatures":  [
+                                          "卡片列表"
+                                      ],
+                      "chartsRequired":  false,
+                      "dataDomIds":  [
+                                         "tab-home",
+                                         "tab-admin",
+                                         "archive-item-1"
+                                     ],
+                      "pageType":  "information-dense",
+                      "title":  "历史归档",
+                      "stateRole":  "base",
+                      "htmlSrc":  "pages/archive.html",
+                      "nodeId":  "page-archive",
+                      "activeMobileNavKey":  "archive"
+                  },
+                  {
+                      "deviceType":  "mobile",
+                      "compositionPattern":  "editorial-intel-dashboard",
+                      "imagePlan":  [
+
+                                    ],
+                      "pageIndex":  4,
+                      "viewportMode":  "document-scroll",
+                      "continuityAnchors":  [
+                                                "源力蓝 #1664ff 主操作色 + 冷灰底 #f6f8fa",
+                                                "卡片白底、1px #dde2e9 边框、radius 8px、轻阴影 shadow-1",
+                                                "阅读端居中 max-w 880/960；后台左侧 240 导航 + 顶栏 56",
+                                                "状态徽章同时显示文字与色标：Complete/Partial/Fallback/Empty/Stale"
+                                            ],
+                      "componentPlan":  [
+
+                                        ],
+                      "visualNorthStar":  "移动详情+返回",
+                      "keyFeatures":  [
+                                          "返回",
+                                          "正文"
+                                      ],
+                      "chartsRequired":  false,
+                      "dataDomIds":  [
+                                         "back-archive",
+                                         "tab-home",
+                                         "tab-archive"
+                                     ],
+                      "pageType":  "information-dense",
+                      "title":  "晨报详情",
+                      "stateRole":  "base",
+                      "htmlSrc":  "pages/brief-detail.html",
+                      "nodeId":  "page-brief-detail",
+                      "activeMobileNavKey":  "archive"
+                  },
+                  {
+                      "deviceType":  "mobile",
+                      "compositionPattern":  "editorial-intel-dashboard",
+                      "imagePlan":  [
+
+                                    ],
+                      "pageIndex":  5,
+                      "viewportMode":  "document-scroll",
+                      "continuityAnchors":  [
+                                                "源力蓝 #1664ff 主操作色 + 冷灰底 #f6f8fa",
+                                                "卡片白底、1px #dde2e9 边框、radius 8px、轻阴影 shadow-1",
+                                                "阅读端居中 max-w 880/960；后台左侧 240 导航 + 顶栏 56",
+                                                "状态徽章同时显示文字与色标：Complete/Partial/Fallback/Empty/Stale"
+                                            ],
+                      "componentPlan":  [
+
+                                        ],
+                      "visualNorthStar":  "移动紧急运维概况",
+                      "keyFeatures":  [
+                                          "KPI 2列",
+                                          "阶段精简",
+                                          "运行/发布按钮"
+                                      ],
+                      "chartsRequired":  false,
+                      "dataDomIds":  [
+                                         "admin-to-review",
+                                         "admin-to-edit",
+                                         "run-full-pipeline"
+                                     ],
+                      "pageType":  "task-driven",
+                      "title":  "今日概况",
+                      "stateRole":  "base",
+                      "htmlSrc":  "pages/admin-overview.html",
+                      "nodeId":  "page-admin-overview",
+                      "activeMobileNavKey":  "admin"
+                  },
+                  {
+                      "deviceType":  "mobile",
+                      "compositionPattern":  "editorial-intel-dashboard",
+                      "imagePlan":  [
+
+                                    ],
+                      "pageIndex":  6,
+                      "viewportMode":  "document-scroll",
+                      "continuityAnchors":  [
+                                                "源力蓝 #1664ff 主操作色 + 冷灰底 #f6f8fa",
+                                                "卡片白底、1px #dde2e9 边框、radius 8px、轻阴影 shadow-1",
+                                                "阅读端居中 max-w 880/960；后台左侧 240 导航 + 顶栏 56",
+                                                "状态徽章同时显示文字与色标：Complete/Partial/Fallback/Empty/Stale"
+                                            ],
+                      "componentPlan":  [
+
+                                        ],
+                      "visualNorthStar":  "移动待审列表+操作",
+                      "keyFeatures":  [
+                                          "筛选 chips",
+                                          "卡片列表",
+                                          "保留过滤"
+                                      ],
+                      "chartsRequired":  false,
+                      "dataDomIds":  [
+                                         "admin-to-overview",
+                                         "filter-pending",
+                                         "action-keep"
+                                     ],
+                      "pageType":  "information-dense",
+                      "title":  "内容审阅",
+                      "stateRole":  "base",
+                      "htmlSrc":  "pages/admin-review.html",
+                      "nodeId":  "page-admin-review",
+                      "activeMobileNavKey":  "admin"
+                  },
+                  {
+                      "deviceType":  "mobile",
+                      "compositionPattern":  "editorial-intel-dashboard",
+                      "imagePlan":  [
+
+                                    ],
+                      "pageIndex":  7,
+                      "viewportMode":  "document-scroll",
+                      "continuityAnchors":  [
+                                                "源力蓝 #1664ff 主操作色 + 冷灰底 #f6f8fa",
+                                                "卡片白底、1px #dde2e9 边框、radius 8px、轻阴影 shadow-1",
+                                                "阅读端居中 max-w 880/960；后台左侧 240 导航 + 顶栏 56",
+                                                "状态徽章同时显示文字与色标：Complete/Partial/Fallback/Empty/Stale"
+                                            ],
+                      "componentPlan":  [
+
+                                        ],
+                      "visualNorthStar":  "移动编辑与发布动作",
+                      "keyFeatures":  [
+                                          "块编辑精简",
+                                          "预览切换",
+                                          "保存/发布/推送"
+                                      ],
+                      "chartsRequired":  false,
+                      "dataDomIds":  [
+                                         "admin-to-overview",
+                                         "save-draft",
+                                         "publish-web"
+                                     ],
+                      "pageType":  "task-driven",
+                      "title":  "晨报编辑",
+                      "stateRole":  "base",
+                      "htmlSrc":  "pages/admin-edit.html",
+                      "nodeId":  "page-admin-edit",
+                      "activeMobileNavKey":  "admin"
+                  }
+              ],
+    "assets":  [
+
+               ],
+    "wiringPlan":  [
+                       {
+                           "label":  "归档",
+                           "from":  "page-home",
+                           "to":  "page-archive",
+                           "hideEdge":  false,
+                           "domId":  "tab-archive"
+                       },
+                       {
+                           "label":  "详情",
+                           "from":  "page-archive",
+                           "to":  "page-brief-detail",
+                           "hideEdge":  false,
+                           "domId":  "archive-item-1"
+                       },
+                       {
+                           "label":  "后台",
+                           "from":  "page-home",
+                           "to":  "page-admin-overview",
+                           "hideEdge":  false,
+                           "domId":  "tab-admin"
+                       },
+                       {
+                           "label":  "审阅",
+                           "from":  "page-admin-overview",
+                           "to":  "page-admin-review",
+                           "hideEdge":  true,
+                           "domId":  "admin-to-review"
+                       }
+                   ],
+    "hiddenInteractionPlan":  [
+                                  {
+                                      "label":  "回晨报",
+                                      "from":  "page-archive",
+                                      "to":  "page-home",
+                                      "hideEdge":  true,
+                                      "domId":  "tab-home"
+                                  },
+                                  {
+                                      "label":  "返回",
+                                      "from":  "page-brief-detail",
+                                      "to":  "page-archive",
+                                      "hideEdge":  true,
+                                      "domId":  "back-archive"
+                                  },
+                                  {
+                                      "label":  "概况",
+                                      "from":  "page-admin-review",
+                                      "to":  "page-admin-overview",
+                                      "hideEdge":  true,
+                                      "domId":  "admin-to-overview"
+                                  },
+                                  {
+                                      "label":  "概况",
+                                      "from":  "page-admin-edit",
+                                      "to":  "page-admin-overview",
+                                      "hideEdge":  true,
+                                      "domId":  "admin-to-overview"
+                                  },
+                                  {
+                                      "label":  "编辑",
+                                      "from":  "page-admin-overview",
+                                      "to":  "page-admin-edit",
+                                      "hideEdge":  true,
+                                      "domId":  "admin-to-edit"
+                                  }
+                              ]
+}

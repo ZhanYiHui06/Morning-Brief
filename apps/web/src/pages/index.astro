@@ -1,0 +1,29 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import BriefView from "@/components/BriefView.astro";
+import { briefsDirectory, loadBriefs } from "@/lib/briefs";
+
+const latest = loadBriefs()[0];
+---
+
+<BaseLayout title={latest ? `${latest.title}｜晨间信号` : "晨间信号"}>
+  <div class="shell">
+    {latest ? <BriefView brief={latest} /> : (
+      <section class="empty">
+        <div class="empty-inner" data-enter>
+          <div class="empty-signal" aria-hidden="true"></div>
+          <span class="section-label">WAITING FOR FIRST SIGNAL</span>
+          <h1 class="display">第一份晨报还在路上</h1>
+          <p class="muted">流水线生成首份已发布晨报后，它会自动出现在这里。</p>
+          <p class="path">读取目录：{briefsDirectory}</p>
+        </div>
+      </section>
+    )}
+  </div>
+</BaseLayout>
+
+<style>
+  .empty h1 { margin: 15px 0 12px; font-size: clamp(38px, 7vw, 76px); line-height: 1; }
+  .empty p { line-height: 1.75; }
+  .path { display: block; width: 100%; max-width: 100%; margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-2); font: 11px/1.5 var(--mono); overflow-wrap: anywhere; }
+</style>

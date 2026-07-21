@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-07-21T00:00:00.000Z",
+  "items": [
+    {
+      "id": "tweet-1",
+      "author": "Builder A",
+      "text": "We launched a new coding agent workflow for product teams today.",
+      "url": "https://x.com/builder/status/1",
+      "publishedAt": "2026-07-21T00:00:00.000Z"
+    },
+    {
+      "id": "tweet-1-copy",
+      "author": "Builder A",
+      "text": "We launched a new coding agent workflow for product teams today.",
+      "url": "https://x.com/builder/status/1",
+      "publishedAt": "2026-07-21T00:00:00.000Z"
+    },
+    {
+      "id": "tweet-2",
+      "author": "Builder B",
+      "text": "Watching the football match at home tonight.",
+      "url": "https://x.com/builder/status/2",
+      "publishedAt": "2026-07-21T00:30:00.000Z"
+    }
+  ]
+}

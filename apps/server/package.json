@@ -1,0 +1,26 @@
+{
+  "name": "@morning-brief/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.15.0",
+    "@morning-brief/core": "workspace:*",
+    "@morning-brief/database": "workspace:*",
+    "drizzle-orm": "^0.44.2",
+    "hono": "^4.8.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
