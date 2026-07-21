@@ -13,7 +13,8 @@ export class ApiError extends Error {
   ) {
     const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
     const detail = typeof record.error === "string" ? record.error : `HTTP ${status}`;
-    super(`请求失败：${detail}`);
+    const context = [record.providerId, record.reason].filter((value) => typeof value === "string").join(" · ");
+    super(`请求失败：${detail}${context ? `（${context}）` : ""}`);
     this.name = "ApiError";
   }
 }
@@ -257,6 +258,10 @@ export const api = {
       method: "PUT", body: JSON.stringify({ name: provider.name, protocol: provider.protocol,
         baseUrl: provider.baseUrl, enabled: provider.enabled, ...(apiKey ? { apiKey } : {}) })
     }));
+  },
+  deleteProvider: async (id: string) => {
+    if (!apiBaseUrl) return;
+    await request(`/providers/${id}`, {}, { method: "DELETE" });
   },
   testProvider: (id: string) => request<{ ok: boolean; modelCount: number; checkedAt: string }>(
     `/providers/${id}/test`, { ok: true, modelCount: 3, checkedAt: new Date().toISOString() },

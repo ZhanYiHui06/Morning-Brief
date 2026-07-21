@@ -671,9 +671,18 @@ export function createApp({
   });
 
   app.delete("/api/providers/:id", async (c) => {
+    const providerId = c.req.param("id");
+    const primaryRoute = await db
+      .select({ taskKind: taskRoutes.taskKind })
+      .from(taskRoutes)
+      .innerJoin(models, eq(taskRoutes.primaryModelId, models.id))
+      .where(eq(models.providerId, providerId))
+      .get();
+    if (primaryRoute)
+      return c.json({ error: "provider_in_use", task: primaryRoute.taskKind }, 409);
     const result = await db
       .delete(providers)
-      .where(eq(providers.id, c.req.param("id")))
+      .where(eq(providers.id, providerId))
       .run();
     return result.rowsAffected
       ? c.body(null, 204)

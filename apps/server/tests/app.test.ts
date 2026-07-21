@@ -5,6 +5,7 @@ import {
   models,
   pipelineRuns,
   providers,
+  taskRoutes,
 } from "@morning-brief/database";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { eq } from "drizzle-orm";
@@ -171,6 +172,38 @@ describe("admin API", () => {
     });
     expect(response.status).toBe(201);
     expect((await response.json()).taskKind).toBe("filter");
+  });
+
+  it("deletes an unused provider and protects providers used by a primary route", async () => {
+    await setup.db.insert(providers).values({
+      id: "provider-delete",
+      name: "delete-me",
+      protocol: "openai-compatible",
+      baseUrl: "https://example.com/v1",
+      secretEnvRef: "DELETE_KEY",
+    }).run();
+    await setup.db.insert(models).values({
+      id: "model-delete",
+      providerId: "provider-delete",
+      modelId: "brief",
+      displayName: "Brief",
+    }).run();
+    await setup.db.insert(taskRoutes).values({
+      id: "route-delete",
+      taskKind: "daily-overview",
+      primaryModelId: "model-delete",
+    }).run();
+    const app = createApp({ db: setup.db });
+
+    const blocked = await app.request("/api/providers/provider-delete", { method: "DELETE" });
+    expect(blocked.status).toBe(409);
+    expect(await blocked.json()).toMatchObject({ error: "provider_in_use", task: "daily-overview" });
+
+    await setup.db.delete(taskRoutes).where(eq(taskRoutes.id, "route-delete")).run();
+    const deleted = await app.request("/api/providers/provider-delete", { method: "DELETE" });
+    expect(deleted.status).toBe(204);
+    expect(await setup.db.select().from(providers).where(eq(providers.id, "provider-delete")).get()).toBeUndefined();
+    expect(await setup.db.select().from(models).where(eq(models.id, "model-delete")).get()).toBeUndefined();
   });
 
   it("saves model configuration atomically and protects primary route models", async () => {

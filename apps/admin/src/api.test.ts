@@ -55,6 +55,29 @@ describe("admin API client", () => {
     });
   });
 
+  it("deletes providers through the provider endpoint", async () => {
+    const fetchMock = vi.mocked(fetch).mockResolvedValue(response(204));
+    const { api } = await loadApi();
+
+    await api.deleteProvider("provider-1");
+
+    expect(fetchMock).toHaveBeenCalledWith("http://admin.test/api/providers/provider-1", expect.objectContaining({
+      method: "DELETE",
+    }));
+  });
+
+  it("includes provider validation context in API errors", async () => {
+    vi.mocked(fetch).mockResolvedValue(response(400, {
+      error: "unsafe_provider_url",
+      providerId: "provider-local",
+      reason: "unsafe_destination",
+    }));
+    const { api } = await loadApi();
+
+    await expect(api.saveModelConfig({ paused: false, providers: [], models: [], routes: [] }))
+      .rejects.toThrow("provider-local · unsafe_destination");
+  });
+
   it("maps finished runs to a real duration and a visible stage", async () => {
     vi.mocked(fetch).mockResolvedValue(response(200, { items: [{
       id: "run-1",
